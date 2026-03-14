@@ -418,6 +418,6 @@ If you find Insight Forge useful, please consider:
 [📖 Documentation](https://docs.insightforge.dev) • 
 [💬 Community](https://discord.gg/insightforge)**
 
-Made with ❤️ by [Lovish Vashishth](https://github.com/lovishv1718)
+Made with ❤️ by [Lovish verma](https://github.com/lovishv1718)
 
 </div>

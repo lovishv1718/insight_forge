@@ -1,0 +1,2617 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insight Forge | Intelligence Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Marked.js for parsing AI Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Chart.js for Power BI-style charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+        :root {
+            --brand-cyan: #2dd4bf;
+            --brand-blue: #3b82f6;
+            --brand-purple: #a855f7;
+            --bg-dark: #020617;
+            --radius-sm: 12px;
+            --radius-md: 24px;
+            --radius-lg: 36px;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-dark);
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+
+        /* 3D Canvas Container */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        .content-layer {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Premium Background Effect */
+        .mesh-gradient {
+            background-color: #020617;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(45, 212, 191, 0.08) 0, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.08) 0, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+        }
+        .glass-panel:hover {
+            border-color: rgba(45, 212, 191, 0.15);
+        }
+
+        .sidebar-btn {
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-btn::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 0%;
+            width: 3px;
+            background: var(--brand-cyan);
+            transition: height 0.3s ease;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .sidebar-btn.active {
+            background: rgba(45, 212, 191, 0.1);
+            color: var(--brand-cyan);
+        }
+
+        .sidebar-btn.active::after {
+            height: 60%;
+        }
+
+        .sidebar-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateX(6px);
+        }
+
+        /* Animations */
+        .section {
+            display: none;
+            animation: sectionEnter 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @keyframes sectionEnter {
+            from {
+                opacity: 0;
+                transform: translateY(40px) scale(0.98);
+                filter: blur(2px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+
+        @keyframes slideUpFade {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .animate-reveal {
+            animation: slideUpFade 0.8s ease-out forwards;
+            opacity: 0;
+        }
+
+        /* Enhanced hover states */
+        .glass-panel {
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .glass-panel:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 40px rgba(45, 212, 191, 0.1);
+            border-color: rgba(45, 212, 191, 0.2);
+        }
+
+        /* Enhanced card hover states */
+        .glass-panel.glass-panel:hover {
+            transform: translateY(-8px) scale(1.03);
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8), 0 0 60px rgba(45, 212, 191, 0.15);
+        }
+
+        /* Button hover enhancements */
+        button {
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Markdown Rendering Styles */
+        .prose-custom {
+            color: #cbd5e1;
+            line-height: 1.8;
+        }
+
+        .prose-custom h1,
+        .prose-custom h2,
+        .prose-custom h3 {
+            color: #ffffff;
+            font-weight: 800;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .prose-custom strong {
+            color: var(--brand-cyan);
+            font-weight: 700;
+        }
+
+        /* Improved Label Visibility */
+        .meta-label {
+            color: #94a3b8;
+            font-weight: 700;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        /* Circular Progress Styling */
+        .progress-ring__circle {
+            transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        /* Loading indicators */
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--brand-cyan);
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .ai-loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(45, 212, 191, 0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        /* Empty states */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1.5rem;
+            opacity: 0.5;
+        }
+
+        .empty-state-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state-description {
+            font-size: 0.875rem;
+            color: #64748b;
+            max-width: 400px;
+            line-height: 1.6;
+        }
+
+        .empty-state-chart {
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.3);
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-md);
+        }
+
+        /* Icon consistency */
+        .icon-sm {
+            width: 16px;
+            height: 16px;
+        }
+
+        .icon-md {
+            width: 24px;
+            height: 24px;
+        }
+
+        .icon-lg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .icon-xl {
+            width: 48px;
+            height: 48px;
+        }
+
+        .icon-2xl {
+            width: 64px;
+            height: 64px;
+        }
+
+        /* Icon container styling */
+        .icon-container-sm {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-container-md {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-container-lg {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Section labels and anchors */
+        .section-label {
+            position: sticky;
+            top: 120px;
+            z-index: 30;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+        }
+
+        .section-label::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--brand-cyan);
+            box-shadow: 0 0 10px rgba(45, 212, 191, 0.5);
+        }
+
+        .section-anchor {
+            scroll-margin-top: 140px;
+        }
+
+        /* Panel motion animations */
+        .panel-appear {
+            animation: panelAppear 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            opacity: 0;
+        }
+
+        @keyframes panelAppear {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.98);
+                filter: blur(1px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+
+        .panel-stagger-1 { animation-delay: 0.1s; }
+        .panel-stagger-2 { animation-delay: 0.2s; }
+        .panel-stagger-3 { animation-delay: 0.3s; }
+        .panel-stagger-4 { animation-delay: 0.4s; }
+
+        .slide-in-left {
+            animation: slideInLeft 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .slide-in-right {
+            animation: slideInRight 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #020617;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body class="mesh-gradient">
+    <div id="canvas-container"></div>
+    <div class="content-layer">
+
+
+    <!-- NAVIGATION HEADER -->
+    <header
+        class="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/60 backdrop-blur-3xl px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-4">
+            <div
+                class="p-2.5 bg-cyan-500/10 rounded-2xl border border-cyan-500/20 shadow-[0_0_20px_rgba(45,212,191,0.1)]">
+                <i data-lucide="shield-check" class="text-cyan-400 w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-black tracking-tighter text-white uppercase">Insight Forge</h1>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em]">Advanced Scoping Analytics</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <div
+                class="hidden lg:flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                <div class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                <span class="text-[10px] font-black text-emerald-400 uppercase">Analysis Complete</span>
+            </div>
+            <a href="/"
+                class="group flex items-center gap-2 px-6 py-2.5 bg-white text-slate-950 rounded-2xl font-black text-sm transition-all hover:scale-105 active:scale-95 shadow-2xl">
+                <i data-lucide="plus" class="w-4 h-4 transition-transform group-hover:rotate-90"></i>
+                New Scan
+            </a>
+        </div>
+    </header>
+
+    <!-- DATASET CONTEXT BAR -->
+    <div class="fixed top-20 w-full z-40 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 px-8 py-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-4 h-4 text-slate-400"></i>
+                    <span class="text-sm font-medium text-white">Dataset Analysis</span>
+                </div>
+                <div class="flex items-center gap-4 text-xs">
+                    <div class="flex items-center gap-1">
+                        <i data-lucide="database" class="w-3 h-3 text-cyan-400"></i>
+                        <span class="text-slate-300">{{ insights.basic_overview.rows | default(0) }} rows</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <i data-lucide="layout" class="w-3 h-3 text-blue-400"></i>
+                        <span class="text-slate-300">{{ insights.basic_overview.columns | default(0) }} columns</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <i data-lucide="clock" class="w-3 h-3 text-emerald-400"></i>
+                        <span class="text-slate-300">Scanned at {{ timestamp or 'Just now' }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                <span class="text-xs font-medium text-emerald-400">Live Analysis</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex h-screen pt-32">
+
+        <!-- SIDEBAR -->
+        <aside class="w-72 bg-slate-950/40 border-r border-white/5 flex flex-col pt-8 px-4 overflow-y-auto">
+            <div class="space-y-8 pb-20">
+                <div>
+                    <p class="meta-label mb-4 px-4">Primary Intelligence</p>
+                    <div class="space-y-1">
+                        <button onclick="showSection('welcome')" id="btn-welcome"
+                            class="sidebar-btn active w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="home" class="w-4 h-4"></i> Dashboard
+                        </button>
+                        <button onclick="showSection('ai-summary')" id="btn-ai-summary"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i> AI Summary
+                        </button>
+                        <button onclick="showSection('overall-health')" id="btn-overall-health"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="activity" class="w-4 h-4"></i> Overall Health
+                        </button>
+                        <button onclick="showSection('report-section')" id="btn-report-section"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="file-bar-chart" class="w-4 h-4"></i> Business Report
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="meta-label mb-4 px-4">Data Profiling</p>
+                    <div class="space-y-1">
+                        <button onclick="showSection('overview')" id="btn-overview"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="layout" class="w-4 h-4"></i> Basic Overview
+                        </button>
+                        <button onclick="showSection('missing')" id="btn-missing"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="database" class="w-4 h-4"></i> Missing Integrity
+                        </button>
+                        <button onclick="showSection('outliers')" id="btn-outliers"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="target" class="w-4 h-4"></i> Outlier Analysis
+                        </button>
+                        <button onclick="showSection('correlations')" id="btn-correlations"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="git-branch" class="w-4 h-4"></i> Correlations
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="meta-label mb-4 px-4">Technical Layers</p>
+                    <div class="space-y-1">
+                        <button onclick="showSection('types')" id="btn-types"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="fingerprint" class="w-4 h-4"></i> Column Types
+                        </button>
+                        <button onclick="showSection('health-summary')" id="btn-health-summary"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="shield-check" class="w-4 h-4"></i> Detailed Health
+                        </button>
+                        <button onclick="showSection('stats')" id="btn-stats"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="calculator" class="w-4 h-4"></i> Simple Stats
+                        </button>
+                        <button onclick="showSection('graphs')" id="btn-graphs"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="pie-chart" class="w-4 h-4"></i> Graphical View
+                        </button>
+                        <button onclick="showSection('ai-charts-section')" id="btn-ai-charts-section"
+                            class="sidebar-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold">
+                            <i data-lucide="layout-dashboard" class="w-4 h-4"></i> AI Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 overflow-y-auto p-12 pb-32">
+
+            <!-- WELCOME SECTION -->
+            <section id="welcome" class="section active max-w-5xl mx-auto text-center py-20">
+                <div class="relative inline-block mb-12">
+                    <div class="absolute -inset-8 bg-cyan-500/20 blur-3xl rounded-full"></div>
+                    <div class="relative glass-panel p-8 rounded-[3rem] border-cyan-500/20 animate-pulse">
+                        <i data-lucide="zap" class="w-16 h-16 text-cyan-400"></i>
+                    </div>
+                </div>
+                <h1 class="text-6xl font-black text-white tracking-tighter mb-6 leading-tight">
+                    Dataset Synthesized.<br /><span class="text-cyan-400">Ready for Scoping.</span>
+                </h1>
+                <p class="text-xl text-slate-300 mb-12 max-w-2xl mx-auto font-medium leading-relaxed">
+                    Analysis complete. We've assessed {{ insights.basic_overview.rows }} records. View the command
+                    center health report or explore specific distributions.
+                </p>
+                <div class="flex justify-center gap-4">
+                    <button onclick="showSection('overall-health')"
+                        class="px-10 py-5 bg-cyan-500 text-white font-black rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-cyan-500/30 flex items-center gap-3">
+                        <i data-lucide="shield" class="w-5 h-5"></i> Check Overall Health
+                    </button>
+                    <button onclick="showSection('ai-summary')"
+                        class="px-10 py-5 glass-panel border-white/10 text-white font-bold rounded-2xl hover:bg-white/5 transition-all">
+                        Read AI Summary
+                    </button>
+                </div>
+            </section>
+
+            <!-- HERO KPI ROW -->
+            <section id="hero-kpi-row" class="section max-w-7xl mx-auto">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
+                    <div class="glass-panel p-6 rounded-2xl flex flex-col gap-2 group relative hover:scale-[1.02] transition-all duration-300">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="database" class="w-4 h-4 text-cyan-400"></i>
+                            <p class="meta-label text-cyan-400">Total Rows</p>
+                        </div>
+                        <p class="text-3xl font-black text-white tracking-tight">{{ insights.basic_overview.rows | default(0) }}</p>
+                        <p class="text-[10px] text-slate-500 font-medium">Records processed</p>
+                    </div>
+                    <div class="glass-panel p-6 rounded-2xl flex flex-col gap-2 group relative hover:scale-[1.02] transition-all duration-300">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="layout" class="w-4 h-4 text-blue-400"></i>
+                            <p class="meta-label text-blue-400">Total Columns</p>
+                        </div>
+                        <p class="text-3xl font-black text-white tracking-tight">{{ insights.basic_overview.columns | default(0) }}</p>
+                        <p class="text-[10px] text-slate-500 font-medium">Schema width</p>
+                    </div>
+                    <div class="glass-panel p-6 rounded-2xl flex flex-col gap-2 group relative hover:scale-[1.02] transition-all duration-300">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+                            <p class="meta-label text-emerald-400">Health Score</p>
+                        </div>
+                        <p class="text-3xl font-black text-white tracking-tight">{{ insights.overall_health_score | default(0) }}<span class="text-lg text-slate-500">%</span></p>
+                        <p class="text-[10px] text-slate-500 font-medium">Data quality</p>
+                    </div>
+                    <div class="glass-panel p-6 rounded-2xl flex flex-col gap-2 group relative hover:scale-[1.02] transition-all duration-300">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400"></i>
+                            <p class="meta-label text-red-400">Missing Data</p>
+                        </div>
+                        <p class="text-3xl font-black text-white tracking-tight">{{ insights.missing_overview.missing_percentage | default(0) }}<span class="text-lg text-slate-500">%</span></p>
+                        <p class="text-[10px] text-slate-500 font-medium">Null density</p>
+                    </div>
+                    <div class="glass-panel p-6 rounded-2xl flex flex-col gap-2 group relative hover:scale-[1.02] transition-all duration-300">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="zap" class="w-4 h-4 text-orange-400"></i>
+                            <p class="meta-label text-orange-400">Risk Score</p>
+                        </div>
+                        <p class="text-3xl font-black text-white tracking-tight">{{ insights.primary_risk_score | default(0) }}<span class="text-lg text-slate-500">/100</span></p>
+                        <p class="text-[10px] text-slate-500 font-medium">Risk level</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- INSIGHT HIGHLIGHT CARDS -->
+            <section id="insight-highlights" class="section max-w-7xl mx-auto">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                    <div class="glass-panel p-6 rounded-2xl border-gradient-to-r from-purple-500/20 to-pink-500/20 relative overflow-hidden group">
+                        <div class="absolute -top-8 -right-8 w-24 h-24 bg-purple-500/10 blur-2xl rounded-full"></div>
+                        <div class="flex items-start gap-4">
+                            <div class="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                                <i data-lucide="trending-up" class="w-5 h-5 text-purple-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-lg font-black text-white mb-2">Strongest Correlation</h4>
+                                <p class="text-sm font-medium text-purple-300 mb-1">Key Relationship Found</p>
+                                <p class="text-xs text-slate-400 leading-relaxed">
+                                    {% if insights.primary_risk_column %}
+                                        {{ insights.primary_risk_column }} shows highest statistical significance
+                                    {% else %}
+                                        Processing correlation analysis...
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl border-gradient-to-r from-red-500/20 to-orange-500/20 relative overflow-hidden group">
+                        <div class="absolute -top-8 -right-8 w-24 h-24 bg-red-500/10 blur-2xl rounded-full"></div>
+                        <div class="flex items-start gap-4">
+                            <div class="p-3 bg-red-500/10 rounded-xl border border-red-500/20">
+                                <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-lg font-black text-white mb-2">Data Integrity Alert</h4>
+                                <p class="text-sm font-medium text-red-300 mb-1">Missing Values Detected</p>
+                                <p class="text-xs text-slate-400 leading-relaxed">
+                                    {% if insights.missing_overview.missing_percentage_per_column %}
+                                        {% set max_missing_col = insights.missing_overview.missing_percentage_per_column.items() | max(attribute=1) %}
+                                        {{ max_missing_col[0] }} has {{ max_missing_col[1] }}% missing data
+                                    {% else %}
+                                        Scanning data completeness...
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl border-gradient-to-r from-cyan-500/20 to-blue-500/20 relative overflow-hidden group">
+                        <div class="absolute -top-8 -right-8 w-24 h-24 bg-cyan-500/10 blur-2xl rounded-full"></div>
+                        <div class="flex items-start gap-4">
+                            <div class="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                                <i data-lucide="sparkles" class="w-5 h-5 text-cyan-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-lg font-black text-white mb-2">AI Recommendation</h4>
+                                <p class="text-sm font-medium text-cyan-300 mb-1">Optimization Suggestion</p>
+                                <p class="text-xs text-slate-400 leading-relaxed">
+                                    {% if insights.overall_health_score %}
+                                        {% if insights.overall_health_score > 80 %}
+                                            Dataset quality is excellent. Ready for advanced modeling.
+                                        {% elif insights.overall_health_score > 60 %}
+                                            Consider data cleaning before processing.
+                                        {% else %}
+                                            Significant data quality issues detected.
+                                        {% endif %}
+                                    {% else %}
+                                            Analyzing dataset characteristics...
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CONSOLIDATED EXECUTIVE HEALTH SECTION -->
+            <section id="overall-health" class="section max-w-6xl mx-auto">
+                <div class="flex items-center gap-6 mb-12">
+                    <h2 class="text-4xl font-black text-white tracking-tight">Executive Health Command Center</h2>
+                    <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+                </div>
+
+                <div class="grid lg:grid-cols-3 gap-8">
+                    <!-- MAIN GAUGE PANEL -->
+                    <div
+                        class="lg:col-span-2 glass-panel p-8 rounded-[4rem] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
+                        <div class="absolute -top-24 -left-24 w-64 h-64 bg-cyan-500/5 blur-[100px] rounded-full"></div>
+
+                        <div class="relative flex-shrink-0">
+                            <svg class="w-64 h-64" viewBox="0 0 100 100">
+                                <circle class="text-white/5 stroke-current" stroke-width="8" fill="transparent" r="42"
+                                    cx="50" cy="50" />
+                                <circle id="health-progress-circle"
+                                    class="progress-ring__circle stroke-current shadow-lg" stroke-width="8"
+                                    stroke-linecap="round" fill="transparent" r="42" cx="50" cy="50"
+                                    style="stroke-dasharray: 263.89; stroke-dashoffset: 263.89;" />
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-6xl font-black text-white tracking-tighter">{{
+                                    insights.overall_health_score | default('0') }}<span
+                                        class="text-2xl text-slate-500">%</span></span>
+                                <span id="health-status-text" class="meta-label mt-2">Initializing...</span>
+                            </div>
+                        </div>
+
+                        <div class="flex-1 space-y-8">
+                            <div>
+                                <p class="meta-label text-cyan-400 mb-2">Calculated Trust Level</p>
+                                <h3 class="text-4xl font-black text-white tracking-tight">{{ insights.data_trust_level |
+                                    default('Scanning...') }}</h3>
+                            </div>
+                            <p class="text-slate-400 text-lg font-medium leading-relaxed">
+                                Our engine has analyzed the structural variance, null density, and skewness to determine
+                                the reliability of this dataset for downstream processing.
+                            </p>
+                            <div id="health-recommendation-box"
+                                class="p-6 rounded-[2rem] bg-white/[0.02] border border-white/10">
+                                <p id="health-rec-text"
+                                    class="text-xs font-bold text-slate-300 uppercase tracking-widest leading-relaxed">
+                                    <!-- Recommendation injected by JS -->
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RISK ASSESSMENT PANEL -->
+                    <div
+                        class="glass-panel p-8 rounded-[3.5rem] border-red-500/20 flex flex-col justify-center relative overflow-hidden">
+                        <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-red-500/5 blur-3xl"></div>
+
+                        <div class="mb-10 text-center lg:text-left">
+                            <div
+                                class="w-12 h-12 bg-red-500/10 rounded-xl border border-red-500/20 flex items-center justify-center mb-6 mx-auto lg:mx-0">
+                                <i data-lucide="alert-triangle" class="text-red-400 w-6 h-6"></i>
+                            </div>
+                            <p class="meta-label text-red-400 mb-2">Primary Analytical Risk</p>
+                            <h4 class="text-3xl font-black text-white tracking-tight">{{ insights.primary_risk_column |
+                                default('None') }}</h4>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-end">
+                                <p class="meta-label">Risk Intensity</p>
+                                <span class="text-4xl font-black text-red-500">{{ insights.primary_risk_score |
+                                    default('0') }}<span class="text-sm text-slate-600 ml-1">/100</span></span>
+                            </div>
+
+                            <div class="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                                <div class="h-full bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-all duration-1000"
+                                    style="width: {{ insights.primary_risk_score | default('0') }}%"></div>
+                            </div>
+
+                            <p
+                                class="text-[10px] font-bold text-slate-400 leading-tight uppercase text-center lg:text-left">
+                                This feature exhibits the highest statistical instability and requires verification
+                                before modeling.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI SUMMARY SECTION -->
+            <section id="ai-summary" class="section max-w-4xl mx-auto">
+                <div class="flex items-center gap-6 mb-12">
+                    <h2 class="text-4xl font-black text-white tracking-tight">AI Scoping Report</h2>
+                    <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+                </div>
+                <div id="raw-summary-data" class="hidden">{{ insights.summary | default('Synthesizing...') }}</div>
+                <div id="summary-cards-container" class="space-y-12"></div>
+            </section>
+
+            <!-- DATA PROFILING GROUP -->
+            <div class="bg-slate-900/20 rounded-[2.5rem] p-8 mb-12 border border-white/5">
+                <div class="flex items-center gap-4 mb-8">
+                    <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                        <i data-lucide="search" class="w-5 h-5 text-slate-400"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-black text-white tracking-tight">DATA PROFILING</h3>
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Structural analysis and data quality assessment</p>
+                    </div>
+                </div>
+
+                <!-- BASIC OVERVIEW SECTION -->
+                <section id="overview" class="section max-w-6xl mx-auto">
+                    <div class="flex items-center gap-6 mb-12">
+                        <h2 class="text-3xl font-black text-white tracking-tight">Dataset Overview</h2>
+                        <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="glass-panel p-8 rounded-[3.5rem] border-white/5 relative group overflow-hidden">
+                            <div class="absolute -top-12 -right-12 w-32 h-32 bg-cyan-500/10 blur-3xl transition-all"></div>
+                            <p class="meta-label mb-6 text-cyan-400">Total Volume</p>
+                            <h3 class="text-7xl font-black text-white tracking-tighter mb-4">{{ insights.basic_overview.rows
+                                | default('0') }}</h3>
+                            <p class="text-slate-400 font-bold text-sm uppercase tracking-wider">Processed Records Detected
+                            </p>
+                        </div>
+                        <div class="glass-panel p-8 rounded-[3.5rem] border-white/5 relative group overflow-hidden">
+                            <div class="absolute -top-12 -right-12 w-32 h-32 bg-blue-500/10 blur-3xl transition-all"></div>
+                            <p class="meta-label mb-6 text-blue-400">Data Schema</p>
+                            <h3 class="text-7xl font-black text-white tracking-tighter mb-4">{{
+                                insights.basic_overview.columns | default('0') }}</h3>
+                            <p class="text-slate-400 font-bold text-sm uppercase tracking-wider">Unique Attributes Found</p>
+                        </div>
+                    </div>
+                    <div class="mt-8 flex justify-center">
+                        <button onclick="showSection('missing')" class="px-8 py-4 glass-panel border-white/10 text-white font-bold rounded-2xl hover:bg-white/5 transition-all flex items-center gap-3">
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            View Detailed Analysis
+                        </button>
+                    </div>
+                </section>
+
+                <!-- MISSING DATA SECTION -->
+                <section id="missing" class="section max-w-6xl mx-auto">
+                    <div class="flex items-center gap-6 mb-12">
+                        <h2 class="text-3xl font-black text-white tracking-tight">Missing Values</h2>
+                        <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+                    </div>
+                    <div class="grid lg:grid-cols-3 gap-8 items-start">
+                        <div class="lg:col-span-1 glass-panel p-8 rounded-[3rem] border-red-500/20 text-center">
+                            <p class="meta-label mb-6 text-red-400">Gap Density</p>
+                            <h3 class="text-7xl font-black text-red-400 mb-4 tracking-tighter">{{
+                                insights.missing_overview.missing_percentage | default('0') }}%</h3>
+                            <p class="text-slate-300 text-sm font-semibold leading-relaxed">System-wide missing values
+                                detected.</p>
+                        </div>
+                        <div class="lg:col-span-2 glass-panel rounded-[3rem] overflow-hidden">
+                            <div class="p-8 border-b border-white/10 bg-white/[0.03]">
+                                <h3 class="meta-label text-slate-300">Feature Null Variance</h3>
+                            </div>
+                            <div class="divide-y divide-white/5">
+                                {% for col, pct in insights.missing_overview.missing_percentage_per_column.items() %}
+                                <div class="p-6 flex items-center justify-between hover:bg-white/[0.04] transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <div
+                                            class="w-2 h-2 rounded-full {% if pct > 0 %}bg-red-400 shadow-[0_0_12px_#f87171]{% else %}bg-emerald-400 shadow-[0_0_12px_#34d399]{% endif %}">
+                                        </div>
+                                        <span class="font-bold text-slate-100">{{ col }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-6">
+                                        <div class="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden hidden sm:block">
+                                            <div class="h-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]"
+                                                style="width: {{ pct }}%"></div>
+                                        </div>
+                                        <span
+                                            class="text-sm font-black {% if pct > 0 %}text-red-400{% else %}text-slate-400{% endif %}">{{
+                                            pct }}%</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- OUTLIERS SECTION -->
+                <section id="outliers" class="section max-w-6xl mx-auto">
+                    <div class="flex items-center gap-6 mb-12">
+                        <h2 class="text-3xl font-black text-white tracking-tight">Outliers</h2>
+                        <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {% if insights.outliers %}
+                        {% for col, pct in insights.outliers.items() %}
+                        {% if pct == 0 %}{% set border_c = 'border-emerald-500/20' %} {% set text_c = 'text-emerald-400' %}
+                        {% set label = 'No Outliers' %} {% set icon = 'check-circle' %}
+                        {% elif pct <= 5 %}{% set border_c='border-emerald-700/40' %} {% set text_c='text-emerald-600' %} {%
+                            set label='Low Outliers' %} {% set icon='activity' %} {% elif pct <=10 %}{% set
+                            border_c='border-yellow-500/30' %} {% set text_c='text-yellow-400' %} {% set
+                            label='Medium Outliers' %} {% set icon='alert-triangle' %} {% elif pct <=20 %}{% set
+                            border_c='border-red-400/30' %} {% set text_c='text-red-400' %} {% set label='High Outliers' %}
+                            {% set icon='alert-circle' %} {% else %}{% set border_c='border-red-800/60' %} {% set
+                            text_c='text-red-800' %} {% set label='Very High Outliers' %} {% set icon='zap' %} {% endif %}
+                            <div
+                            class="glass-panel p-8 rounded-[2.5rem] border {{ border_c }} group hover:scale-[1.03] transition-all duration-500">
+                            <div class="flex justify-between items-start mb-8">
+                                <div class="p-3 rounded-2xl bg-white/5 {{ text_c }}"><i data-lucide="{{ icon }}"
+                                        class="w-6 h-6"></i></div>
+                                <div
+                                    class="px-3 py-1.5 rounded-full border {{ border_c }} text-[9px] font-black uppercase {{ text_c }} tracking-wider">
+                                    {{ label }}</div>
+                            </div>
+                            <h4 class="meta-label mb-2 text-slate-300 truncate">{{ col }}</h4>
+                            <div class="flex items-baseline gap-1"><span
+                                    class="text-6xl font-black {{ text_c }} tracking-tighter">{{ pct }}</span><span
+                                    class="text-slate-500 font-bold text-lg">%</span></div>
+                            <div class="mt-6 w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                                <div class="h-full bg-current transition-all duration-1000 {{ text_c }}"
+                                    style="width: {{ pct }}%"></div>
+                            </div>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+        </div>
+        </section>
+            </div>
+
+    <!-- STATS SECTION -->
+    <section id="stats" class="section max-w-6xl mx-auto">
+        <div class="flex items-center gap-6 mb-12">
+            <h2 class="text-4xl font-black text-white tracking-tight">Distribution Profiling</h2>
+            <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+        </div>
+        <div class="grid md:grid-cols-2 gap-12">
+            {% for col, v in insights.simple_stats.numeric_data.items() %}
+            <div class="glass-panel p-8 rounded-[3.5rem] relative group">
+                <div class="flex items-center gap-5 mb-10">
+                    <div
+                        class="w-14 h-14 rounded-2xl bg-cyan-400/10 flex items-center justify-center border border-cyan-400/20 transition-all">
+                        <i data-lucide="bar-chart-2" class="text-cyan-400 w-7 h-7"></i>
+                    </div>
+                    <h3 class="text-3xl font-black text-white tracking-tight">{{ col }}</h3>
+                </div>
+                <div class="grid grid-cols-2 gap-y-10 gap-x-12">
+                    <div class="space-y-1">
+                        <p class="meta-label">Mean (Avg)</p>
+                        <p class="text-3xl font-black text-white">{{ v.mean | round(2) }}</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="meta-label">Median</p>
+                        <p class="text-3xl font-black text-white">{{ v.median | round(2) }}</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="meta-label text-emerald-500/80">Floor (Min)</p>
+                        <p class="text-3xl font-black text-emerald-400">{{ v.min | round(2) }}</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="meta-label text-cyan-500/80">Ceiling (Max)</p>
+                        <p class="text-3xl font-black text-cyan-400">{{ v.max | round(2) }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- COLUMN TYPES SECTION -->
+    <section id="types" class="section max-w-6xl mx-auto">
+        <div class="flex items-center gap-6 mb-12">
+            <h2 class="text-4xl font-black text-white tracking-tight">Schema Mapping</h2>
+            <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="glass-panel p-8 rounded-[3.5rem] border-cyan-500/20">
+                <div class="flex justify-between items-center mb-10">
+                    <div class="p-5 bg-cyan-500/10 rounded-2xl border border-cyan-500/20"><i data-lucide="binary"
+                            class="text-cyan-400 w-10 h-10"></i></div>
+                    <span class="text-7xl font-black text-white tracking-tighter">{{ insights.column_types.numeric.count
+                        }}</span>
+                </div>
+                <h4 class="text-2xl font-bold text-white mb-6">Quantitative Features</h4>
+                <div class="flex flex-wrap gap-2.5">
+                    {% for c in insights.column_types.numeric.columns %}<span
+                        class="px-5 py-2.5 bg-white/5 rounded-2xl text-[11px] font-black border border-white/10 text-slate-200 uppercase tracking-widest">{{
+                        c }}</span>{% endfor %}
+                </div>
+            </div>
+            <div class="glass-panel p-8 rounded-[3.5rem] border-blue-500/20">
+                <div class="flex justify-between items-center mb-10">
+                    <div class="p-5 bg-blue-500/10 rounded-2xl border border-blue-500/20"><i
+                            data-lucide="message-square" class="text-blue-400 w-10 h-10"></i></div>
+                    <span class="text-7xl font-black text-white tracking-tighter">{{
+                        insights.column_types.categorical.count }}</span>
+                </div>
+                <h4 class="text-2xl font-bold text-white mb-6">Qualitative Features</h4>
+                <div class="flex flex-wrap gap-2.5">
+                    {% for c in insights.column_types.categorical.columns %}<span
+                        class="px-5 py-2.5 bg-white/5 rounded-2xl text-[11px] font-black border border-white/10 text-slate-200 uppercase tracking-widest">{{
+                        c }}</span>{% endfor %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DETAILED HEALTH SUMMARY SECTION -->
+    <section id="health-summary" class="section max-w-5xl mx-auto">
+        <div class="flex items-center gap-6 mb-12">
+            <h2 class="text-4xl font-black text-white tracking-tight">System Scan Intelligence</h2>
+            <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+        </div>
+        <div class="space-y-8">
+            <div class="glass-panel p-8 rounded-[3rem]">
+                <div class="flex items-center gap-5 mb-8">
+                    <div class="p-3 bg-amber-500/10 rounded-xl text-amber-500 border border-amber-500/20"><i
+                            data-lucide="target" class="w-6 h-6"></i></div>
+                    <h3 class="text-xl font-bold text-white">Redundant Constant Fields</h3>
+                </div>
+                <div class="flex flex-wrap gap-4">
+                    {% if insights.health_checks.single_value_columns %}{% for c in
+                    insights.health_checks.single_value_columns %}<span
+                        class="px-6 py-3 bg-red-500/10 text-red-400 rounded-2xl text-[11px] font-black border border-red-500/30 uppercase tracking-widest animate-pulse">⚠️
+                        {{ c }} (Invariant)</span>{% endfor %}
+                    {% else %}<div class="flex items-center gap-3 text-emerald-400 font-bold"><i
+                            data-lucide="check-circle" class="w-5 h-5"></i>
+                        <p>No redundant single-value fields detected.</p>
+                    </div>{% endif %}
+                </div>
+            </div>
+            <div class="glass-panel p-8 rounded-[3rem]">
+                <div class="flex items-center gap-5 mb-8">
+                    <div class="p-3 bg-indigo-500/10 rounded-xl text-indigo-400 border border-indigo-500/20"><i
+                            data-lucide="scale" class="w-6 h-6"></i></div>
+                    <h3 class="text-xl font-bold text-white">Feature Skewness / Imbalance</h3>
+                </div>
+                <div class="flex flex-wrap gap-4">
+                    {% if insights.health_checks.imbalanced_columns %}{% for c in
+                    insights.health_checks.imbalanced_columns %}<span
+                        class="px-6 py-3 bg-indigo-500/10 text-indigo-400 rounded-2xl text-[11px] font-black border border-indigo-500/30 uppercase tracking-widest">Skewed:
+                        {{ c }} (&gt;95% freq)</span>{% endfor %}
+                    {% else %}<div class="flex items-center gap-3 text-emerald-400 font-bold"><i
+                            data-lucide="shield-check" class="w-5 h-5"></i>
+                        <p>No critical feature skewness detected.</p>
+                    </div>{% endif %}
+                </div>
+            </div>
+            <div class="glass-panel p-8 rounded-[3rem]">
+                <div class="flex items-center gap-5 mb-8">
+                    <div class="p-3 bg-red-500/10 rounded-xl text-red-400 border border-red-500/20"><i
+                            data-lucide="alert-octagon" class="w-6 h-6"></i></div>
+                    <h3 class="text-xl font-bold text-white">Type Integrity Analysis</h3>
+                </div>
+                <div class="flex flex-wrap gap-4">
+                    {% if insights.health_checks.numeric_as_text_columns %}{% for c in
+                    insights.health_checks.numeric_as_text_columns %}<span
+                        class="px-6 py-3 bg-red-500/10 text-red-400 rounded-2xl text-[11px] font-black border border-red-500/30 uppercase tracking-widest">Type
+                        Mismatch: {{ c }}</span>{% endfor %}
+                    {% else %}<div class="flex items-center gap-3 text-emerald-400 font-bold"><i
+                            data-lucide="shield-check" class="w-5 h-5"></i>
+                        <p>All data types aligned with statistical standards.</p>
+                    </div>{% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GRAPH SECTION — Production Intelligence Dashboard -->
+    <section id="graphs" class="section max-w-7xl mx-auto">
+
+        <!-- Header -->
+        <div class="flex items-center gap-6 mb-4">
+            <h2 class="text-4xl font-black text-white tracking-tight">Visual Intelligence</h2>
+            <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+            <span
+                class="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400 border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 rounded-full">Chart.js
+                Engine</span>
+        </div>
+        <p class="text-slate-400 font-medium mb-6 text-sm">Auto-generated from your dataset. Every chart dynamically
+            adapts to the structure and quality of your uploaded file.</p>
+        <div id="chart-debug-bar" style="display:none;"
+            class="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono"></div>
+
+        <!-- Empty dataset error panel -->
+        <div id="empty-dataset-panel" style="display:none;"
+            class="mb-8 p-10 rounded-[2.5rem] glass-panel border border-yellow-500/30 flex items-center gap-6">
+            <div class="p-4 bg-yellow-500/10 rounded-2xl border border-yellow-500/20"><i data-lucide="alert-triangle"
+                    class="text-yellow-400 w-8 h-8"></i></div>
+            <div>
+                <h3 class="text-xl font-black text-white mb-1">Empty Dataset Detected</h3>
+                <p class="text-slate-400 text-sm font-medium">The uploaded file contains no rows. Please upload a
+                    dataset with data to enable visual analysis.</p>
+            </div>
+        </div>
+
+        <!-- KPI Strip (5 cards including Complexity Index) -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10" id="graph-kpi-strip">
+            <div class="glass-panel p-6 rounded-3xl flex flex-col gap-1 group relative">
+                <p class="meta-label text-cyan-400">Total Columns</p>
+                <p class="text-3xl font-black text-white">{{ insights.basic_overview.columns | default(0) }}</p>
+                <p class="text-[10px] text-slate-500 font-medium">Schema width</p>
+                <div
+                    class="absolute -top-1 -right-1 hidden group-hover:flex bg-slate-800 border border-white/10 text-slate-300 text-[10px] font-bold px-3 py-2 rounded-xl z-20 w-48 shadow-xl">
+                    Total number of attributes in your dataset.</div>
+            </div>
+            <div class="glass-panel p-6 rounded-3xl flex flex-col gap-1 group relative">
+                <p class="meta-label text-blue-400">Numeric Features</p>
+                <p class="text-3xl font-black text-white">{{ insights.column_types.numeric.count | default(0) }}</p>
+                <p class="text-[10px] text-slate-500 font-medium">Quantitative cols</p>
+                <div
+                    class="absolute -top-1 -right-1 hidden group-hover:flex bg-slate-800 border border-white/10 text-slate-300 text-[10px] font-bold px-3 py-2 rounded-xl z-20 w-48 shadow-xl">
+                    Columns with integer or float data types.</div>
+            </div>
+            <div class="glass-panel p-6 rounded-3xl flex flex-col gap-1 group relative">
+                <p class="meta-label text-purple-400">Categorical Features</p>
+                <p class="text-3xl font-black text-white">{{ insights.column_types.categorical.count | default(0) }}</p>
+                <p class="text-[10px] text-slate-500 font-medium">Text / label cols</p>
+                <div
+                    class="absolute -top-1 -right-1 hidden group-hover:flex bg-slate-800 border border-white/10 text-slate-300 text-[10px] font-bold px-3 py-2 rounded-xl z-20 w-48 shadow-xl">
+                    Object/string columns used for grouping and labels.</div>
+            </div>
+            <div class="glass-panel p-6 rounded-3xl flex flex-col gap-1 group relative">
+                <p class="meta-label text-emerald-400">Overall Health</p>
+                <p class="text-3xl font-black text-white">{{ insights.overall_health_score | default(0) }}<span
+                        class="text-lg text-slate-500">%</span></p>
+                <p class="text-[10px] text-slate-500 font-medium">Weighted score</p>
+                <div
+                    class="absolute -top-1 -right-1 hidden group-hover:flex bg-slate-800 border border-white/10 text-slate-300 text-[10px] font-bold px-3 py-2 rounded-xl z-20 w-52 shadow-xl">
+                    Weighted score based on completeness and outlier exposure.</div>
+            </div>
+            <div class="glass-panel p-6 rounded-3xl flex flex-col gap-1 group relative" id="kpi-complexity">
+                <p class="meta-label text-orange-400">Complexity Index</p>
+                <p class="text-3xl font-black text-white" id="complexity-score-kpi">—</p>
+                <p class="text-[10px] font-bold" id="complexity-label-kpi" style="color:#f97316">—</p>
+                <div
+                    class="absolute -top-1 -right-1 hidden group-hover:flex bg-slate-800 border border-white/10 text-slate-300 text-[10px] font-bold px-3 py-2 rounded-xl z-20 w-56 shadow-xl">
+                    Data Complexity Index = 0.3×numeric + 0.4×missing + 0.3×outlier. &lt;20 Simple, 20-50 Moderate,
+                    &gt;50 Complex.</div>
+            </div>
+        </div>
+
+        <!-- Chart Grid (2×2) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <!-- CHART 1: Donut - Schema Composition -->
+            <div class="glass-panel p-10 rounded-[3rem] flex flex-col gap-4" id="chart-card-donut">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 bg-cyan-500/10 rounded-2xl border border-cyan-500/20"><i data-lucide="pie-chart"
+                            class="text-cyan-400 w-5 h-5"></i></div>
+                    <div>
+                        <h3 class="text-lg font-black text-white">Schema Composition</h3>
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Column type breakdown
+                            — excluding identifier columns</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-center" style="height:260px; position:relative;">
+                    <canvas id="chart-donut" width="400" height="250"></canvas>
+                </div>
+                <div id="insight-donut"
+                    class="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/8 text-xs font-semibold text-slate-400">
+                </div>
+            </div>
+
+            <!-- CHART 2: Missing Data Horizontal Bar -->
+            <div class="glass-panel p-10 rounded-[3rem] flex flex-col gap-4" id="chart-card-missing">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 bg-red-500/10 rounded-2xl border border-red-500/20"><i data-lucide="database"
+                            class="text-red-400 w-5 h-5"></i></div>
+                    <div>
+                        <h3 class="text-lg font-black text-white">Missing Data Density</h3>
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Null % per column —
+                            sorted descending</p>
+                    </div>
+                </div>
+                <div style="height:260px; overflow-y:auto; position:relative;">
+                    <canvas id="chart-missing" width="400" height="250"></canvas>
+                </div>
+                <div id="insight-missing"
+                    class="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/8 text-xs font-semibold text-slate-400">
+                </div>
+            </div>
+
+            <!-- CHART 3: Outlier Bar with IQR/Z-score Toggle -->
+            <div class="glass-panel p-10 rounded-[3rem] flex flex-col gap-4" id="chart-card-outlier">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="p-3 bg-yellow-500/10 rounded-2xl border border-yellow-500/20"><i
+                                data-lucide="target" class="text-yellow-400 w-5 h-5"></i></div>
+                        <div>
+                            <h3 class="text-lg font-black text-white">Outlier Exposure</h3>
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500"
+                                id="outlier-method-label">IQR outlier % per numeric feature</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btn-iqr" onclick="switchOutlierMode('iqr')"
+                            class="px-3 py-1.5 text-[9px] font-black uppercase rounded-full border border-yellow-500/40 bg-yellow-500/15 text-yellow-400 transition-all">IQR</button>
+                        <button id="btn-zscore" onclick="switchOutlierMode('zscore')"
+                            class="px-3 py-1.5 text-[9px] font-black uppercase rounded-full border border-white/10 bg-white/5 text-slate-500 transition-all">Z-Score</button>
+                    </div>
+                </div>
+                <div id="outlier-low-msg" style="display:none;"
+                    class="px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-400">
+                    &#10003; Low outlier presence detected across numeric features.</div>
+                <div style="height:240px; position:relative;">
+                    <canvas id="chart-outlier" width="400" height="230"></canvas>
+                </div>
+                <div id="insight-outlier"
+                    class="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/8 text-xs font-semibold text-slate-400">
+                </div>
+            </div>
+
+            <!-- CHART 4: Scatter Plot with Regression + Pearson r -->
+            <div class="glass-panel p-10 rounded-[3rem] flex flex-col gap-4" id="chart-card-scatter">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20"><i data-lucide="activity"
+                            class="text-indigo-400 w-5 h-5"></i></div>
+                    <div>
+                        <h3 class="text-lg font-black text-white" id="scatter-title">Correlation Explorer</h3>
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500" id="scatter-subtitle">
+                            Top-2 numeric columns by variance</p>
+                    </div>
+                </div>
+                <div id="scatter-sampled-note" style="display:none;"
+                    class="px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[10px] font-bold text-blue-400">
+                </div>
+                <div id="scatter-pearson-badge" style="display:none;"
+                    class="px-3 py-1.5 self-start rounded-full bg-indigo-500/15 border border-indigo-500/30 text-[10px] font-black text-indigo-300">
+                </div>
+                <div style="height:240px; position:relative;">
+                    <canvas id="chart-scatter" width="400" height="230"></canvas>
+                </div>
+                <div id="insight-scatter"
+                    class="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/8 text-xs font-semibold text-slate-400">
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Numeric Distributions (Histograms) -->
+        <div class="mt-10" id="histogram-section">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20"><i data-lucide="bar-chart-2"
+                        class="text-emerald-400 w-5 h-5"></i></div>
+                <div>
+                    <h3 class="text-xl font-black text-white">Numeric Distributions</h3>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Freedman-Diaconis bin
+                        sizing — auto log-scale when skewness &gt; 1</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="histogram-grid"></div>
+        </div>
+
+        <!-- Category Frequency Analysis -->
+        <div class="mt-10" id="top5-section">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20"><i data-lucide="bar-chart"
+                        class="text-blue-400 w-5 h-5"></i></div>
+                <div>
+                    <h3 class="text-xl font-black text-white">Category Frequency Analysis</h3>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Top 5 values — count &amp;
+                        percentage per categorical feature</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="top5-grid"></div>
+        </div>
+
+    </section>
+
+    <!-- AI DASHBOARD SECTION — Gemini-powered Business Analyst Dashboard -->
+    <section id="ai-charts-section" class="section max-w-7xl mx-auto">
+
+        <!-- Header Row -->
+        <div class="flex items-center gap-6 mb-3">
+            <h2 class="text-4xl font-black text-white tracking-tight">AI Intelligence Dashboard</h2>
+            <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+            <span
+                class="text-[10px] font-black uppercase tracking-[0.3em] text-purple-400 border border-purple-500/20 bg-purple-500/10 px-4 py-2 rounded-full">Gemini
+                Powered</span>
+        </div>
+
+        <!-- Ask Insight Forge — Natural Language Questions -->
+        <div class="mb-8 p-8 rounded-[2.5rem] glass-panel relative overflow-hidden">
+            <div class="absolute -top-16 -right-16 w-48 h-48 bg-cyan-500/6 blur-[60px] rounded-full"></div>
+            <div class="relative z-10">
+                <div class="flex items-center gap-4 mb-5">
+                    <div class="p-3 bg-cyan-500/10 rounded-2xl border border-cyan-500/20">
+                        <i data-lucide="message-circle-question" class="text-cyan-400 w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-white">Ask Insight Forge</h3>
+                        <p class="text-[9px] font-bold uppercase tracking-[0.25em] text-slate-500">Natural language data
+                            questions · Gemini powered</p>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <input type="text" id="ask-input" placeholder="e.g. Which feature affects performance most?"
+                        class="flex-1 bg-white/[0.04] border border-white/10 rounded-2xl px-5 py-3.5 text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/40 focus:ring-2 focus:ring-cyan-500/10 transition-all"
+                        onkeydown="if(event.key==='Enter') askQuestion()">
+                    <button onclick="askQuestion()" id="ask-btn"
+                        class="px-6 py-3.5 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-2xl font-black text-sm hover:scale-105 active:scale-95 transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2">
+                        <i data-lucide="send" class="w-4 h-4"></i> Ask
+                    </button>
+                </div>
+                <!-- Answer area -->
+                <div id="ask-answer" class="mt-5" style="display:none;">
+                    <div id="ask-answer-text"
+                        class="px-5 py-4 rounded-2xl bg-white/[0.03] border border-white/8 text-sm font-semibold text-slate-300 leading-relaxed">
+                    </div>
+                    <div id="ask-answer-chart" class="mt-4" style="display:none;">
+                        <div style="height:260px; position:relative;">
+                            <canvas id="ask-chart-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <!-- Loading state -->
+                <div id="ask-loading" class="mt-5 flex items-center gap-3" style="display:none;">
+                    <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></div>
+                    <span class="text-cyan-300 text-xs font-bold uppercase tracking-widest">Thinking…</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dataset Classification Badge -->
+        <div id="ai-dataset-badge" class="mb-6 p-8 rounded-[2.5rem] glass-panel relative overflow-hidden"
+            style="display:none;">
+            <div class="absolute -top-20 -left-20 w-60 h-60 bg-purple-500/8 blur-[80px] rounded-full"></div>
+            <div class="absolute -bottom-16 -right-16 w-48 h-48 bg-cyan-500/6 blur-[60px] rounded-full"></div>
+            <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
+                <div class="flex items-center gap-5 flex-shrink-0">
+                    <div
+                        class="p-4 bg-gradient-to-br from-purple-500/20 to-cyan-500/10 rounded-2xl border border-purple-500/30 shadow-[0_0_30px_rgba(139,92,246,0.15)]">
+                        <i data-lucide="brain" class="text-purple-400 w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-purple-400/80 mb-1">AI-Detected
+                            Dataset Type</p>
+                        <h3 id="ai-dataset-type-label" class="text-2xl font-black text-white tracking-tight">Analyzing…
+                        </h3>
+                    </div>
+                </div>
+                <div class="h-12 w-px bg-white/10 hidden md:block"></div>
+                <p id="ai-dataset-summary-text" class="text-slate-300 text-sm font-medium leading-relaxed flex-1"></p>
+            </div>
+        </div>
+
+        <!-- KPI Cards Row (populated by JS if charts have kpi field) -->
+        <div id="ai-kpi-strip" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" style="display:none;"></div>
+
+        <!-- Empty state -->
+        <div id="ai-charts-empty"
+            class="hidden mb-8 p-10 rounded-[2.5rem] glass-panel border border-yellow-500/30 flex items-center gap-6">
+            <div class="p-4 bg-yellow-500/10 rounded-2xl border border-yellow-500/20"><i data-lucide="alert-triangle"
+                    class="text-yellow-400 w-8 h-8"></i></div>
+            <div>
+                <h3 class="text-xl font-black text-white mb-1">No AI Dashboard Available</h3>
+                <p class="text-slate-400 text-sm font-medium">The AI analyst returned no suggestions. This may happen if
+                    the dataset has very few columns or if the AI service is unavailable.</p>
+            </div>
+        </div>
+
+        <!-- AI Strategic Insights -->
+        <div id="strategic-insights" class="mb-8 glass-panel p-10 rounded-[3rem]">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="p-3 bg-purple-500/10 rounded-2xl border border-purple-500/20"><i data-lucide="sparkles"
+                        class="text-purple-400 w-5 h-5"></i></div>
+                <div>
+                    <h3 class="text-lg font-black text-white">AI Strategic Insights</h3>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Top signals across
+                        correlations, importance, and distributions</p>
+                </div>
+            </div>
+            <div id="strategic-list" class="space-y-2 text-slate-300 text-sm font-semibold"></div>
+        </div>
+
+        <!-- Professional 2-column chart grid -->
+        <div id="ai-charts" class="grid grid-cols-1 lg:grid-cols-2 gap-8"></div>
+
+        <!-- Key Drivers of Outcomes -->
+        <div id="drivers-section" class="mt-8 glass-panel p-10 rounded-[3rem]" style="display: none;">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20"><i data-lucide="target"
+                        class="text-emerald-400 w-5 h-5"></i></div>
+                <div>
+                    <h3 class="text-lg font-black text-white">Key Drivers of Outcomes</h3>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Top 5 influential features
+                    </p>
+                </div>
+            </div>
+            <p class="text-[11px] font-bold text-slate-400 mb-2">Target column: <span id="drivers-target"
+                    class="text-white">{{ target_column or 'N/A' }}</span></p>
+            <div style="height:260px; position:relative;">
+                <canvas id="drivers-bar"></canvas>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- CORRELATIONS SECTION -->
+    <section id="correlations" class="section max-w-7xl mx-auto">
+        <div class="flex items-center gap-6 mb-3">
+            <h2 class="text-4xl font-black text-white tracking-tight">Feature Correlations</h2>
+            <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+            <span
+                class="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400 border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 rounded-full">Auto-Detected</span>
+        </div>
+        <p class="text-slate-400 font-medium mb-8 text-sm">Pearson correlation analysis of all numeric features. Pairs
+            with |r| &gt; 0.5 are shown below, ranked by strength.</p>
+
+        <!-- Summary cards -->
+        <div id="corr-summary" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8" style="display:none;"></div>
+
+        <!-- No correlations state -->
+        <div id="corr-empty"
+            class="hidden mb-8 p-10 rounded-[2.5rem] glass-panel border border-emerald-500/20 flex items-center gap-6">
+            <div class="p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20"><i data-lucide="check-circle"
+                    class="text-emerald-400 w-8 h-8"></i></div>
+            <div>
+                <h3 class="text-xl font-black text-white mb-1">No Strong Correlations Found</h3>
+                <p class="text-slate-400 text-sm font-medium">No feature pairs exceed the 0.5 correlation threshold.
+                    This could indicate independent features — which is often desirable for ML models.</p>
+            </div>
+        </div>
+
+        <!-- Correlation chart -->
+        <div id="corr-chart-card" class="glass-panel p-8 rounded-[2.5rem] mb-8" style="display:none;">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                    <i data-lucide="git-branch" class="text-emerald-400 w-4 h-4"></i>
+                </div>
+                <div>
+                    <h3 class="text-[15px] font-black text-white leading-snug">Key Feature Relationships</h3>
+                    <p class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Top correlations · Pearson
+                        coefficient</p>
+                </div>
+            </div>
+            <div style="height:340px; position:relative;">
+                <canvas id="corr-bar-chart"></canvas>
+            </div>
+            <div id="corr-insight"
+                class="mt-4 px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/8 text-xs font-semibold text-slate-400 leading-relaxed">
+            </div>
+        </div>
+
+        <!-- Correlation pairs table -->
+        <div id="corr-table-card" class="glass-panel p-8 rounded-[2.5rem]" style="display:none;">
+            <h3 class="text-[15px] font-black text-white mb-4">Correlation Details</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-white/20 bg-gradient-to-r from-slate-800/50 to-slate-900/50">
+                            <th
+                                class="text-left py-4 px-4 text-emerald-400 font-black text-xs uppercase tracking-wider rounded-tl-lg">
+                                Feature A</th>
+                            <th class="text-left py-4 px-4 text-blue-400 font-black text-xs uppercase tracking-wider">
+                                Feature B</th>
+                            <th class="text-center py-4 px-4 text-cyan-400 font-black text-xs uppercase tracking-wider">
+                                Correlation</th>
+                            <th
+                                class="text-center py-4 px-4 text-purple-400 font-black text-xs uppercase tracking-wider">
+                                Strength</th>
+                            <th
+                                class="text-center py-4 px-4 text-amber-400 font-black text-xs uppercase tracking-wider rounded-tr-lg">
+                                Direction</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corr-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- BUSINESS REPORT SECTION -->
+    <section id="report-section" class="section max-w-5xl mx-auto">
+        <div class="flex items-center gap-6 mb-3">
+            <h2 class="text-4xl font-black text-white tracking-tight">Business Intelligence Report</h2>
+            <div class="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
+            <span
+                class="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400 border border-amber-500/20 bg-amber-500/10 px-4 py-2 rounded-full">AI
+                Generated</span>
+        </div>
+        <p class="text-slate-400 font-medium mb-8 text-sm">Comprehensive analytics report with executive summary, key
+            metrics, insights, quality assessment, and actionable recommendations.</p>
+
+        <!-- Generate button -->
+        <div id="report-trigger" class="mb-8">
+            <button onclick="generateReport()" id="report-gen-btn"
+                class="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-black text-sm hover:scale-105 active:scale-95 transition-all shadow-lg shadow-amber-500/20 flex items-center gap-3">
+                <i data-lucide="file-bar-chart" class="w-5 h-5"></i> Generate Business Report
+            </button>
+        </div>
+
+        <!-- Loading state -->
+        <div id="report-loading" class="flex items-center gap-3 mb-8" style="display:none;">
+            <div class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></div>
+            <span class="text-amber-300 text-xs font-bold uppercase tracking-widest">Generating report with
+                Gemini…</span>
+        </div>
+
+        <!-- Report content area -->
+        <div id="report-content" style="display:none;">
+            <div id="report-header" class="mb-8 p-8 rounded-[2.5rem] glass-panel relative overflow-hidden">
+                <div class="absolute -top-16 -left-16 w-48 h-48 bg-amber-500/8 blur-[60px] rounded-full"></div>
+                <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
+                    <div
+                        class="p-4 bg-gradient-to-br from-amber-500/20 to-orange-500/10 rounded-2xl border border-amber-500/30">
+                        <i data-lucide="file-bar-chart" class="text-amber-400 w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h3 id="report-title" class="text-2xl font-black text-white tracking-tight"></h3>
+                        <p id="report-meta"
+                            class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-1"></p>
+                    </div>
+                    <div class="md:ml-auto">
+                        <button onclick="downloadReport()"
+                            class="px-5 py-2.5 bg-white/[0.06] border border-white/10 rounded-2xl text-sm font-bold text-white hover:bg-white/10 transition-all flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Download HTML
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="report-sections" class="space-y-6"></div>
+        </div>
+    </section>
+
+    </main>
+    </div>
+
+    <!-- Hidden JSON payload from backend (existing charts) -->
+    <script id="charts-json-data" type="application/json">{{ charts_json | safe }}</script>
+    <!-- Hidden JSON payload from backend (AI chart plan) -->
+    <script id="ai-charts-json-data" type="application/json">{{ ai_charts_json | safe }}</script>
+    <!-- Hidden fields for AI dataset classification -->
+    <div id="ai-dataset-type" class="hidden">{{ ai_dataset_type | default('Unknown') }}</div>
+    <div id="ai-dataset-summary" class="hidden">{{ ai_dataset_summary | default('') }}</div>
+    <!-- Hidden JSON for correlation data -->
+    <script id="correlation-json-data" type="application/json">{{ correlation_json | safe }}</script>
+    <!-- Hidden JSON for key drivers -->
+    <script id="drivers-json-data" type="application/json">{{ drivers_json | safe }}</script>
+    <!-- Hidden JSON for recommended charts -->
+    <script id="recommended-charts-json" type="application/json">{{ recommended_charts_json | safe }}</script>
+    <!-- Hidden JSON for strategic insights -->
+    <script id="strategic-insights-json" type="application/json">{{ strategic_insights_json | safe }}</script>
+
+    <script>
+        lucide.createIcons();
+
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+        Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+        Chart.defaults.font.weight = '700';
+
+        const PALETTE = {
+            cyan: 'rgba(45,212,191,', blue: 'rgba(59,130,246,', purple: 'rgba(139,92,246,',
+            red: 'rgba(239,68,68,', yellow: 'rgba(250,204,21,', green: 'rgba(52,211,153,',
+            indigo: 'rgba(99,102,241,', pink: 'rgba(244,114,182,'
+        };
+        const COLORS = Object.values(PALETTE);
+        const fillBars = (arr, a = 0.75) => arr.map((c, i) => `${COLORS[i % COLORS.length]}${a})`);
+
+        let chartInstances = {};
+        let outlierMode = 'iqr';
+        let globalC = null;
+
+        function destroyChart(id) {
+            if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+        }
+        function setInsight(id, text) {
+            const el = document.getElementById(id);
+            if (el && text) el.textContent = String.fromCodePoint(0x1F4A1) + ' ' + text;
+        }
+
+        function switchOutlierMode(mode) {
+            outlierMode = mode;
+            document.getElementById('btn-iqr').className = mode === 'iqr'
+                ? 'px-3 py-1.5 text-[9px] font-black uppercase rounded-full border border-yellow-500/40 bg-yellow-500/15 text-yellow-400 transition-all'
+                : 'px-3 py-1.5 text-[9px] font-black uppercase rounded-full border border-white/10 bg-white/5 text-slate-500 transition-all';
+            document.getElementById('btn-zscore').className = mode === 'zscore'
+                ? 'px-3 py-1.5 text-[9px] font-black uppercase rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-400 transition-all'
+                : 'px-3 py-1.5 text-[9px] font-black uppercase rounded-full border border-white/10 bg-white/5 text-slate-500 transition-all';
+            const lbl = document.getElementById('outlier-method-label');
+            if (lbl) lbl.textContent = mode === 'iqr'
+                ? 'IQR outlier % per numeric feature'
+                : 'Z-Score (σ>3) outlier % per numeric feature';
+            if (globalC) buildOutlierChart(globalC);
+        }
+
+        function buildOutlierChart(C) {
+            destroyChart('outlier');
+            const ctx = document.getElementById('chart-outlier');
+            const lowMsg = document.getElementById('outlier-low-msg');
+            if (!ctx || !C.outlier_bar || !C.outlier_bar.labels.length) {
+                if (ctx) ctx.parentElement.innerHTML = '<p class="text-slate-500 font-bold text-center py-12 text-sm">No numeric columns for outlier analysis.</p>';
+                return;
+            }
+            const od = C.outlier_bar;
+            const activeData = outlierMode === 'zscore' ? (od.zscore_data || od.data) : od.data;
+            const allLow = activeData.every(v => v < 2);
+            if (lowMsg) lowMsg.style.display = allLow ? 'block' : 'none';
+            chartInstances['outlier'] = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: od.labels, datasets: [{
+                        label: 'Outlier %', data: activeData,
+                        backgroundColor: activeData.map(v => v > 20 ? `${PALETTE.red}0.8)` : v > 10 ? `${PALETTE.yellow}0.8)` : v > 2 ? `${PALETTE.cyan}0.7)` : `${PALETTE.green}0.7)`),
+                        borderRadius: 8, borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: c => ` ${c.parsed.y.toFixed(2)}% (${outlierMode.toUpperCase()})` } }
+                    },
+                    scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } }, x: { grid: { display: false } } }
+                }
+            });
+            setInsight('insight-outlier', od.insight);
+        }
+
+        function buildCharts() {
+            Object.keys(chartInstances).forEach(id => destroyChart(id));
+            const debugBar = document.getElementById('chart-debug-bar');
+            function showDebug(msg) { if (debugBar) { debugBar.style.display = 'block'; debugBar.textContent = '⚠ ' + msg; } console.error('[Charts]', msg); }
+            const raw = document.getElementById('charts-json-data').textContent;
+            let C;
+            try { C = JSON.parse(raw); if (debugBar) debugBar.style.display = 'none'; }
+            catch (e) { showDebug('JSON parse failed: ' + e.message); return; }
+            if (!C || typeof C !== 'object') { showDebug('Chart data empty.'); return; }
+            globalC = C;
+
+            const rows = {{ insights.basic_overview.rows | default (0)
+        }};
+        const emptyPanel = document.getElementById('empty-dataset-panel');
+        if (rows === 0) { if (emptyPanel) emptyPanel.style.display = 'flex'; return; }
+
+        if (C.complexity) {
+            const se = document.getElementById('complexity-score-kpi');
+            const le = document.getElementById('complexity-label-kpi');
+            if (se) se.textContent = C.complexity.score;
+            if (le) { le.textContent = C.complexity.label; le.style.color = { Simple: '#34d399', Moderate: '#facc15', Complex: '#f87171' }[C.complexity.label] || '#f97316'; }
+        }
+
+        const numericCount = C.type_breakdown ? C.type_breakdown.data[0] : 0;
+        const catCount = C.type_breakdown ? C.type_breakdown.data[1] : 0;
+        const hs = document.getElementById('histogram-section'), ts = document.getElementById('top5-section');
+        const sc = document.getElementById('chart-card-scatter'), oc = document.getElementById('chart-card-outlier');
+        if (hs) hs.style.display = numericCount > 0 ? '' : 'none';
+        if (ts) ts.style.display = catCount > 0 ? '' : 'none';
+        if (sc) sc.style.display = (C.scatter && C.scatter.points && C.scatter.points.length > 0) ? '' : 'none';
+        if (oc) oc.style.display = numericCount > 0 ? '' : 'none';
+
+        // 1. Donut
+        destroyChart('donut');
+        const donutCtx = document.getElementById('chart-donut');
+        if (donutCtx && C.type_breakdown) {
+            const td = C.type_breakdown, cn = td.column_names || {};
+            const nzL = [], nzD = [], nzC = [];
+            const dc = [PALETTE.cyan, PALETTE.blue, PALETTE.purple, PALETTE.yellow];
+            td.labels.forEach((l, i) => { if (td.data[i] > 0) { nzL.push(l); nzD.push(td.data[i]); nzC.push(`${dc[i]}0.85)`); } });
+            const tot = nzD.reduce((s, v) => s + v, 0);
+            chartInstances['donut'] = new Chart(donutCtx.getContext('2d'), {
+                type: 'doughnut',
+                data: { labels: nzL, datasets: [{ data: nzD, backgroundColor: nzC, borderWidth: 0, hoverOffset: 14 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '68%',
+                    plugins: {
+                        legend: { position: 'right', labels: { padding: 16, boxWidth: 12, font: { size: 12 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const pct = tot > 0 ? ((ctx.parsed / tot) * 100).toFixed(1) : 0;
+                                    const names = (cn[ctx.label] || []).slice(0, 5).join(', ');
+                                    const more = (cn[ctx.label] || []).length > 5 ? ` ...+${(cn[ctx.label] || []).length - 5} more` : '';
+                                    return [` ${ctx.label}: ${ctx.parsed} cols (${pct}%)`, names + more].filter(Boolean);
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'pctLbl', afterDatasetDraw(chart) {
+                        const { ctx: c2, data: d2 } = chart, ds = d2.datasets[0], meta = chart.getDatasetMeta(0);
+                        const t2 = ds.data.reduce((s, v) => s + v, 0);
+                        meta.data.forEach((arc, i) => {
+                            const pct = t2 > 0 ? ((ds.data[i] / t2) * 100).toFixed(1) : 0;
+                            if (pct < 5) return;
+                            const { x, y } = arc.tooltipPosition();
+                            c2.save(); c2.fillStyle = '#fff'; c2.font = 'bold 11px Plus Jakarta Sans';
+                            c2.textAlign = 'center'; c2.textBaseline = 'middle'; c2.fillText(pct + '%', x, y); c2.restore();
+                        });
+                    }
+                }]
+            });
+            setInsight('insight-donut', nzL.map((l, i) => `${l}: ${nzD[i]}`).join(' | '));
+        }
+
+        // 2. Missing Bar
+        destroyChart('missing');
+        const misCtx = document.getElementById('chart-missing');
+        if (misCtx && C.missing_bar) {
+            const md = C.missing_bar;
+            misCtx.parentElement.style.height = Math.max(260, md.labels.length * 38) + 'px';
+            chartInstances['missing'] = new Chart(misCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: md.labels, datasets: [{
+                        label: 'Missing %', data: md.data,
+                        backgroundColor: md.colors || md.data.map(v => v > 20 ? `${PALETTE.red}0.8)` : v > 5 ? `${PALETTE.yellow}0.8)` : `${PALETTE.green}0.75)`),
+                        borderRadius: 6, borderSkipped: false
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.parsed.x.toFixed(2)}% missing` } } },
+                    scales: { x: { min: 0, max: 100, ticks: { callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } }, y: { grid: { display: false }, ticks: { font: { size: 11 } } } }
+                }
+            });
+            setInsight('insight-missing', md.insight);
+        }
+
+        // 3. Outlier
+        buildOutlierChart(C);
+
+        // 4. Scatter + Regression
+        destroyChart('scatter');
+        const scCtx = document.getElementById('chart-scatter');
+        console.log('[Scatter Plot] Canvas found:', !!scCtx);
+        console.log('[Scatter Plot] C.scatter data:', C.scatter);
+
+        if (scCtx && C.scatter) {
+            const sd = C.scatter;
+            console.log('[Scatter Plot] Building chart with:', {
+                x_label: sd.x_label,
+                y_label: sd.y_label,
+                points_count: sd.points ? sd.points.length : 0,
+                pearson_r: sd.pearson_r,
+                has_regression: sd.regression && sd.regression.length === 2
+            });
+
+            const stEl = document.getElementById('scatter-title'), ssEl = document.getElementById('scatter-subtitle');
+            if (stEl) stEl.textContent = `${sd.x_label} vs ${sd.y_label}`;
+            if (ssEl) ssEl.textContent = `Top-2 by variance · ${sd.points.length} pts`;
+            const sn = document.getElementById('scatter-sampled-note');
+            if (sd.sampled_note && sn) { sn.style.display = 'block'; sn.textContent = '⚡ ' + sd.sampled_note; }
+            const pb = document.getElementById('scatter-pearson-badge');
+            if (sd.pearson_r != null && pb) { pb.style.display = 'flex'; pb.textContent = `Pearson r = ${sd.pearson_r}`; }
+
+            const dsets = [{
+                label: `${sd.x_label}/${sd.y_label}`, data: sd.points,
+                backgroundColor: `${PALETTE.indigo}0.55)`, pointRadius: 4, pointHoverRadius: 7,
+                borderColor: `${PALETTE.indigo}0.9)`, borderWidth: 1, type: 'scatter'
+            }];
+            console.log('[Scatter Plot] Dataset created:', dsets[0].data.length, 'points');
+
+            if (sd.regression && sd.regression.length === 2) dsets.push({
+                label: 'Trend', data: sd.regression, type: 'line',
+                borderColor: `${PALETTE.cyan}0.9)`, borderWidth: 2, borderDash: [6, 3],
+                pointRadius: 0, fill: false, tension: 0
+            });
+
+            console.log('[Scatter Plot] Creating Chart.js instance...');
+            try {
+                chartInstances['scatter'] = new Chart(scCtx.getContext('2d'), {
+                    type: 'scatter', data: { datasets: dsets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: dsets.length > 1, labels: { font: { size: 10 } } },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => {
+                                        if (ctx.datasetIndex > 0) return null;
+                                        return ` ${sd.x_label}: ${ctx.parsed.x.toFixed(2)}, ${sd.y_label}: ${ctx.parsed.y.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: sd.x_label, font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                            y: { title: { display: true, text: sd.y_label, font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+                        }
+                    }
+                });
+                console.log('[Scatter Plot] Chart created successfully');
+                setInsight('insight-scatter', sd.insight);
+            } catch (e) {
+                console.error('[Scatter Plot] Error creating chart:', e);
+                scCtx.parentElement.innerHTML = `<p class="text-red-500 font-bold text-center py-12 text-sm">Chart creation error: ${e.message}</p>`;
+            }
+        } else if (scCtx) {
+            console.log('[Scatter Plot] No data available, showing message');
+            scCtx.parentElement.innerHTML = '<p class="text-slate-500 font-bold text-center py-12 text-sm">Need at least 2 numeric columns for scatter plot.</p>';
+        } else {
+            console.log('[Scatter Plot] Canvas element not found');
+        }
+
+        // 5. Histograms
+        const histGrid = document.getElementById('histogram-grid');
+        if (histGrid) {
+            histGrid.innerHTML = '';
+            if (C.histograms && C.histograms.length > 0) {
+                C.histograms.forEach((h, idx) => {
+                    const cid = `hist-${idx}`, color = COLORS[idx % COLORS.length];
+                    const logTag = h.use_log ? `<span class="text-[9px] font-black px-2 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 ml-2">LOG</span>` : '';
+                    const card = document.createElement('div');
+                    card.className = 'glass-panel p-8 rounded-[2.5rem] flex flex-col gap-3';
+                    card.innerHTML = `<div class="flex items-center gap-2"><p class="meta-label text-emerald-400">${h.column}</p>${logTag}<span class="ml-auto text-[9px] font-black text-slate-500">skew: ${h.skewness !== undefined ? h.skewness : '?'}</span></div>
+                            <div style="height:200px;position:relative;"><canvas id="${cid}"></canvas></div>
+                            <div class="px-3 py-2 rounded-xl bg-white/5 border border-white/8 text-[10px] font-semibold text-slate-400">💡 ${h.insight || ''}</div>`;
+                    histGrid.appendChild(card);
+                    chartInstances[cid] = new Chart(document.getElementById(cid).getContext('2d'), {
+                        type: 'bar', data: {
+                            labels: h.labels, datasets: [{
+                                label: h.column, data: h.data,
+                                backgroundColor: `${color}0.65)`, borderColor: `${color}1)`, borderWidth: 1, borderRadius: 4, borderSkipped: false
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { title: t => (h.use_log ? 'Log bin: ' : 'Bin: ') + t[0].label, label: c => ` Count: ${c.parsed.y} | Skewness: ${h.skewness}` } } },
+                            scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { size: 9 } } }, y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { font: { size: 9 } } } }
+                        }
+                    });
+                });
+            } else {
+                histGrid.innerHTML = '<p class="text-slate-500 font-bold text-sm col-span-2">No numeric columns available for histograms.</p>';
+            }
+        }
+
+        // 6. Categorical Top-5
+        const top5Grid = document.getElementById('top5-grid');
+        if (top5Grid) {
+            top5Grid.innerHTML = '';
+            if (C.top5_bars && C.top5_bars.length > 0) {
+                C.top5_bars.forEach((t, idx) => {
+                    const cid = `top5-${idx}`;
+                    const hiTag = t.high_cardinality ? `<span class="text-[9px] font-black px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 ml-2">HIGH CARDINALITY · ${t.unique_count}</span>` : '';
+                    const card = document.createElement('div');
+                    card.className = 'glass-panel p-8 rounded-[2.5rem] flex flex-col gap-3';
+                    card.innerHTML = `<div class="flex items-center gap-2 flex-wrap"><p class="meta-label text-blue-400">${t.column} — Top 5</p>${hiTag}</div>
+                            <div style="height:200px;position:relative;"><canvas id="${cid}"></canvas></div>
+                            <div class="px-3 py-2 rounded-xl bg-white/5 border border-white/8 text-[10px] font-semibold text-slate-400">💡 ${t.insight || ''}</div>`;
+                    top5Grid.appendChild(card);
+                    const pcts = t.percentages || [];
+                    chartInstances[cid] = new Chart(document.getElementById(cid).getContext('2d'), {
+                        type: 'bar', data: {
+                            labels: t.labels, datasets: [{
+                                label: 'Count', data: t.data,
+                                backgroundColor: fillBars(t.labels, 0.72), borderRadius: 6, borderSkipped: false
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => [` Count: ${c.parsed.y}`, ` Share: ${pcts[c.dataIndex] || '?'}%`] } } },
+                            scales: { x: { grid: { display: false }, ticks: { maxRotation: 30, font: { size: 10 } } }, y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { font: { size: 10 } } } }
+                        }
+                    });
+                });
+            } else {
+                top5Grid.innerHTML = '<p class="text-slate-500 font-bold text-sm col-span-3">No categorical columns available for frequency analysis.</p>';
+            }
+        }
+
+        requestAnimationFrame(() => { Object.values(chartInstances).forEach(ch => { try { ch.resize(); } catch (e) { } }); });
+        }
+
+
+        // ── Health Score Gauge ────────────────────────────────────────────────
+        function updateHealthScore(score) {
+            const circle = document.getElementById('health-progress-circle');
+            const statusText = document.getElementById('health-status-text');
+            const recText = document.getElementById('health-rec-text');
+            if (!circle) return;
+            const radius = circle.r.baseVal.value;
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference - (score / 100) * circumference;
+            circle.style.strokeDasharray = `${circumference} ${circumference}`;
+            circle.style.strokeDashoffset = offset;
+            let color, label, rec;
+            if (score >= 90) { color = '#10b981'; label = 'OPTIMAL HEALTH'; rec = "DATA IS READY FOR HIGH-RESOLUTION PRODUCTION MODELING."; }
+            else if (score >= 70) { color = '#2dd4bf'; label = 'STABLE STATE'; rec = "MINOR PREPROCESSING RECOMMENDED TO REMOVE RESIDUAL NOISE."; }
+            else if (score >= 50) { color = '#facc15'; label = 'NEEDS ATTENTION'; rec = "MULTIPLE GAPS DETECTED. APPLY DATA RECOVERY STEPS IMMEDIATELY."; }
+            else { color = '#ef4444'; label = 'CRITICAL STATUS'; rec = "EXTREME BIAS RISK. DATA INTEGRITY FAILS ANALYSIS THRESHOLD."; }
+            circle.style.color = color;
+            statusText.style.color = color;
+            statusText.innerText = label;
+            recText.innerText = "FORGE RECO: " + rec;
+        }
+
+        // ── AI Summary Cards ──────────────────────────────────────────────────
+        function getIconForTitle(title) {
+            const t = title.toLowerCase();
+            if (t.includes('executive') || t.includes('summary')) return 'file-text';
+            if (t.includes('finding') || t.includes('anomaly')) return 'search';
+            if (t.includes('recommendation') || t.includes('action')) return 'lightbulb';
+            if (t.includes('data overview')) return 'database';
+            if (t.includes('trend')) return 'trending-up';
+            return 'sparkles';
+        }
+
+        function processSummary() {
+            const rawText = document.getElementById('raw-summary-data').innerText.trim();
+            const container = document.getElementById('summary-cards-container');
+            if (!container) return;
+            container.innerHTML = '';
+            const parts = rawText.split(/(?=\n#+ |^#+ )/m);
+            parts.forEach((part, index) => {
+                const trimmedPart = part.trim();
+                if (!trimmedPart || trimmedPart.length < 5) return;
+                const lines = trimmedPart.split('\n');
+                let title = lines[0].replace(/^#+\s*/, '').replace(/[*]/g, '').trim();
+                let contentRaw = lines.slice(1).join('\n').trim();
+                if (!title || title === '#') { if (!contentRaw) return; title = "Data Observation"; }
+                if (index === 0 && !part.startsWith('#')) { title = "Analysis Scope"; contentRaw = part; }
+                const card = document.createElement('div');
+                card.className = `glass-panel p-12 rounded-[4rem] relative overflow-hidden animate-reveal`;
+                card.style.animationDelay = `${index * 0.15}s`;
+                const iconName = getIconForTitle(title);
+                card.innerHTML = `
+                    <div class="absolute -top-24 -right-24 w-80 h-80 bg-cyan-500/5 blur-[120px] rounded-full"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-6 mb-10">
+                            <div class="p-5 bg-cyan-500/10 rounded-2xl border border-cyan-500/20"><i data-lucide="${iconName}" class="text-cyan-400 w-9 h-9"></i></div>
+                            <h3 class="text-3xl font-black text-white tracking-tight">${title}</h3>
+                        </div>
+                        <div class="prose-custom whitespace-pre-line text-lg">${marked.parse(contentRaw)}</div>
+                    </div>`;
+                container.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        // ── AI Dashboard Builder ──────────────────────────────────────────────
+        let aiChartsBuilt = false;
+        let aiChartInstances = {};
+
+        const AI_PALETTES = [
+            ['rgba(139,92,246,0.80)', 'rgba(99,102,241,0.75)', 'rgba(59,130,246,0.70)', 'rgba(34,211,238,0.70)', 'rgba(45,212,191,0.70)', 'rgba(52,211,153,0.70)', 'rgba(16,185,129,0.70)', 'rgba(5,150,105,0.70)', 'rgba(6,95,70,0.65)', 'rgba(20,184,166,0.70)', 'rgba(56,189,248,0.70)', 'rgba(96,165,250,0.70)'],
+            ['rgba(251,146,60,0.80)', 'rgba(249,115,22,0.75)', 'rgba(239,68,68,0.75)', 'rgba(244,114,182,0.72)', 'rgba(236,72,153,0.72)', 'rgba(219,39,119,0.72)', 'rgba(190,18,60,0.68)', 'rgba(225,29,72,0.68)', 'rgba(251,113,133,0.70)', 'rgba(253,164,175,0.65)', 'rgba(254,205,211,0.62)', 'rgba(255,228,230,0.60)'],
+            ['rgba(45,212,191,0.82)', 'rgba(20,184,166,0.78)', 'rgba(13,148,136,0.75)', 'rgba(15,118,110,0.72)', 'rgba(17,94,89,0.70)', 'rgba(34,211,238,0.72)', 'rgba(6,182,212,0.72)', 'rgba(8,145,178,0.68)', 'rgba(14,116,144,0.65)', 'rgba(22,78,99,0.62)', 'rgba(21,94,117,0.60)', 'rgba(56,189,248,0.68)'],
+            ['rgba(52,211,153,0.82)', 'rgba(16,185,129,0.78)', 'rgba(5,150,105,0.75)', 'rgba(4,120,87,0.72)', 'rgba(6,95,70,0.68)', 'rgba(132,204,22,0.72)', 'rgba(163,230,53,0.68)', 'rgba(101,163,13,0.65)', 'rgba(77,124,15,0.62)', 'rgba(54,83,20,0.60)', 'rgba(65,161,106,0.65)', 'rgba(110,231,183,0.68)'],
+            ['rgba(59,130,246,0.82)', 'rgba(37,99,235,0.78)', 'rgba(29,78,216,0.75)', 'rgba(30,64,175,0.72)', 'rgba(30,58,138,0.68)', 'rgba(96,165,250,0.72)', 'rgba(147,197,253,0.68)', 'rgba(191,219,254,0.65)', 'rgba(99,102,241,0.72)', 'rgba(129,140,248,0.68)', 'rgba(165,180,252,0.65)', 'rgba(199,210,254,0.62)'],
+            ['rgba(244,114,182,0.82)', 'rgba(236,72,153,0.78)', 'rgba(219,39,119,0.75)', 'rgba(190,18,60,0.72)', 'rgba(225,29,72,0.70)', 'rgba(251,113,133,0.72)', 'rgba(253,164,175,0.68)', 'rgba(139,92,246,0.72)', 'rgba(167,139,250,0.68)', 'rgba(196,181,253,0.65)', 'rgba(221,214,254,0.62)', 'rgba(237,233,254,0.60)'],
+        ];
+
+        const CHART_ICONS = {
+            bar: 'bar-chart-2', line: 'trending-up', pie: 'pie-chart',
+            doughnut: 'circle-dot', radar: 'hexagon', polarArea: 'target'
+        };
+
+        function buildAICharts() {
+            console.log('[AI Dashboard] buildAICharts() called, aiChartsBuilt:', aiChartsBuilt);
+            if (aiChartsBuilt) return;
+
+            const raw = document.getElementById('ai-charts-json-data');
+            const container = document.getElementById('ai-charts');
+            const emptyEl = document.getElementById('ai-charts-empty');
+            const kpiStrip = document.getElementById('ai-kpi-strip');
+
+            console.log('[AI Dashboard] Elements found:', {
+                raw: !!raw,
+                container: !!container,
+                emptyEl: !!emptyEl,
+                kpiStrip: !!kpiStrip
+            });
+
+            if (!raw) {
+                console.error('[AI Dashboard] ai-charts-json-data element not found');
+                return;
+            }
+
+            console.log('[AI Dashboard] Raw JSON content:', raw.textContent.substring(0, 200) + '...');
+
+            let charts;
+            try {
+                charts = JSON.parse(raw.textContent);
+                console.log('[AI Dashboard] Parsed charts:', charts.length, 'items');
+            } catch (e) {
+                console.error('[AI Dashboard] JSON parse failed:', e);
+                if (emptyEl) emptyEl.classList.remove('hidden');
+                return;
+            }
+
+            // ── Strategic Insights Builder ──
+            try {
+                const sraw = document.getElementById('strategic-insights-json').textContent;
+                const list = JSON.parse(sraw || '[]');
+                const el = document.getElementById('strategic-list');
+                if (el && list.length > 0) {
+                    el.innerHTML = '';
+                    list.forEach((ins, i) => {
+                        const row = document.createElement('div');
+                        row.className = 'flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/8 text-sm font-semibold text-slate-300';
+                        row.innerHTML = `<span class="text-lg font-black leading-none">${(i + 1)}️⃣</span> <div><span class="text-white font-black">${ins.title}:</span> ${ins.description}</div>`;
+                        el.appendChild(row);
+                    });
+                }
+            } catch (e) { console.error('[AI Dashboard] Strategic insights failed:', e); }
+
+            // ── KPI Cards ──
+            const kpiCharts = charts.filter(c => c.kpi && c.kpi.label && c.kpi.value);
+            if (kpiCharts.length > 0 && kpiStrip) {
+                kpiStrip.innerHTML = '';
+                const kpiAccents = ['cyan', 'purple', 'blue', 'emerald'];
+                kpiCharts.slice(0, 4).forEach((chart, i) => {
+                    const accent = kpiAccents[i % kpiAccents.length];
+                    const kpiCard = document.createElement('div');
+                    kpiCard.className = 'glass-panel p-6 rounded-3xl flex flex-col gap-2 relative overflow-hidden animate-reveal';
+                    kpiCard.style.animationDelay = `${i * 0.1}s`;
+                    kpiCard.innerHTML = `
+                        <div class="absolute -top-8 -right-8 w-24 h-24 bg-${accent}-500/10 blur-2xl rounded-full"></div>
+                        <p class="meta-label text-${accent}-400">${chart.kpi.label}</p>
+                        <p class="text-2xl font-black text-white tracking-tight leading-tight">${chart.kpi.value}</p>
+                        <p class="text-[10px] text-slate-500 font-semibold truncate">${chart.title}</p>`;
+                    kpiStrip.appendChild(kpiCard);
+                });
+                kpiStrip.style.display = 'grid';
+            }
+
+            // ── Render Chart Cards ──
+            if (Array.isArray(charts) && charts.length > 0) {
+                charts.forEach((chart, index) => {
+                    // Final, robust validation to prevent rendering invalid chart objects
+                    if (!chart || !chart.type || !chart.labels || !chart.data || !Array.isArray(chart.labels) || !Array.isArray(chart.data) || chart.data.length === 0) {
+                        return; // Skip charts with missing or empty essential properties
+                    }
+
+                    const isBarOrLine = chart.type === 'bar' || chart.type === 'line';
+                    if (isBarOrLine && chart.labels.length !== chart.data.length) {
+                        return; // Bar and line charts require labels and data arrays to have matching lengths
+                    }
+
+                    const cid = 'ai-chart-' + index;
+                    const palette = AI_PALETTES[index % AI_PALETTES.length];
+                    const colors = chart.labels.map((_, i) => palette[i % palette.length]);
+                    const borderColors = colors.map(c => c.replace(/[\d.]+\)$/, '1)'));
+                    const iconName = CHART_ICONS[chart.type] || 'sparkles';
+                    const subtitle = chart.subtitle || `${chart.type} chart · AI selected`;
+                    const insight = chart.insight || '';
+                    const cardAccents = ['purple', 'cyan', 'blue', 'emerald', 'pink', 'indigo'];
+                    const accent = cardAccents[index % cardAccents.length];
+
+                    const card = document.createElement('div');
+                    card.className = `glass-panel p-8 rounded-[2.5rem] flex flex-col gap-4 relative overflow-hidden animate-reveal`;
+                    card.style.animationDelay = `${index * 0.08}s`;
+
+                    card.innerHTML = `
+                        <div class="absolute -top-12 -right-12 w-36 h-36 bg-${accent}-500/5 blur-3xl rounded-full"></div>
+                        <div class="relative z-10 flex flex-col gap-4 h-full">
+                            <div class="flex items-start gap-3">
+                                <div class="p-2.5 bg-${accent}-500/10 rounded-xl border border-${accent}-500/20 flex-shrink-0">
+                                    <i data-lucide="${iconName}" class="text-${accent}-400 w-4 h-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="text-[15px] font-black text-white leading-snug">${chart.title}</h3>
+                                    <p class="text-[9px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">${subtitle}</p>
+                                </div>
+                            </div>
+                            <div style="height:280px; position:relative; flex-shrink:0;">
+                                <canvas id="${cid}"></canvas>
+                            </div>
+                            ${insight ? `<div class="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/8 text-xs font-semibold text-slate-400 leading-relaxed">
+                                <span class="text-${accent}-400 font-black mr-1">💡 INSIGHT:</span> ${insight}
+                            </div>` : ''}
+                        </div>`;
+                    container.appendChild(card);
+
+                    const isRound = chart.type === 'pie' || chart.type === 'doughnut';
+                    const isPolar = chart.type === 'polarArea';
+                    const isRadar = chart.type === 'radar';
+                    const isRoundish = isRound || isPolar || isRadar;
+
+                    let datasetConfig;
+                    if (isRound) {
+                        datasetConfig = { data: chart.data, backgroundColor: colors, borderWidth: 0, hoverOffset: 16 };
+                    } else if (isPolar) {
+                        datasetConfig = { data: chart.data, backgroundColor: colors, borderWidth: 0 };
+                    } else if (isRadar) {
+                        datasetConfig = {
+                            label: chart.title, data: chart.data,
+                            backgroundColor: 'rgba(139,92,246,0.15)',
+                            borderColor: 'rgba(139,92,246,0.85)',
+                            borderWidth: 2.5, pointBackgroundColor: colors,
+                            pointRadius: 5, pointHoverRadius: 7,
+                            pointBorderColor: '#0f172a', pointBorderWidth: 2
+                        };
+                    } else {
+                        datasetConfig = {
+                            label: chart.title, data: chart.data,
+                            backgroundColor: colors,
+                            borderColor: borderColors,
+                            borderWidth: chart.type === 'line' ? 2.5 : 0,
+                            borderRadius: chart.type === 'bar' ? 8 : 0,
+                            borderSkipped: false,
+                            fill: chart.type === 'line' ? { target: 'origin', above: colors[0].replace(/[\d.]+\)$/, '0.10)') } : undefined,
+                            tension: chart.type === 'line' ? 0.4 : 0,
+                            pointRadius: chart.type === 'line' ? 4 : 0,
+                            pointHoverRadius: chart.type === 'line' ? 8 : 0,
+                            pointBackgroundColor: chart.type === 'line' ? colors[0] : undefined,
+                            pointBorderWidth: chart.type === 'line' ? 2 : 0,
+                            pointBorderColor: chart.type === 'line' ? '#0f172a' : undefined
+                        };
+                    }
+
+                    const chartOptions = {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 800, easing: 'easeOutQuart' },
+                        plugins: {
+                            legend: {
+                                display: isRoundish,
+                                position: isRound ? 'right' : 'bottom',
+                                labels: { padding: 14, boxWidth: 12, font: { size: 10, weight: '700' }, color: '#94a3b8' }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(15,23,42,0.95)',
+                                borderColor: 'rgba(255,255,255,0.1)',
+                                borderWidth: 1,
+                                cornerRadius: 12,
+                                padding: 12,
+                                titleFont: { size: 11, weight: '800' },
+                                bodyFont: { size: 11, weight: '600' },
+                                callbacks: {
+                                    label: ctx => isRound || isPolar
+                                        ? ` ${ctx.label}: ${ctx.parsed}`
+                                        : isRadar
+                                            ? ` ${ctx.label}: ${ctx.parsed.r}`
+                                            : ` ${ctx.parsed.y}`
+                                }
+                            }
+                        }
+                    };
+
+                    if (!isRoundish) {
+                        chartOptions.scales = {
+                            x: { grid: { display: false, drawBorder: false }, ticks: { font: { size: 9, weight: '600' }, maxRotation: 35, color: '#64748b' } },
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }, ticks: { font: { size: 9, weight: '600' }, color: '#64748b' } }
+                        };
+                    }
+                    if (chart.type === 'doughnut') chartOptions.cutout = '64%';
+
+                    const canvas = document.getElementById(cid);
+                    aiChartInstances[cid] = new Chart(canvas.getContext('2d'), {
+                        type: chart.type,
+                        data: { labels: chart.labels, datasets: [datasetConfig] },
+                        options: chartOptions
+                    });
+                });
+            } else {
+                if (emptyEl) emptyEl.classList.remove('hidden');
+            }
+
+            // ── Key Drivers ──
+            try {
+                const rawDrivers = document.getElementById('drivers-json-data').textContent;
+                const drivers = JSON.parse(rawDrivers || '[]');
+                const dCanvas = document.getElementById('drivers-bar');
+                const dSection = document.getElementById('drivers-section');
+                if (dCanvas && drivers.length > 0) {
+                    if (dSection) dSection.style.display = 'block';
+                    new Chart(dCanvas.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: drivers.map(d => d.feature), datasets: [{
+                                label: 'Importance', data: drivers.map(d => d.importance),
+                                backgroundColor: fillBars(drivers, 0.75), borderRadius: 8, borderSkipped: false
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.03)' } }
+                            }
+                        }
+                    });
+                }
+            } catch (e) { }
+
+            // ── Recommended Charts ──
+            try {
+                const recRaw = document.getElementById('recommended-charts-json').textContent;
+                const recs = JSON.parse(recRaw || '[]');
+                recs.forEach((chart, index) => {
+                    const cid = 'ai-rec-' + index;
+                    const palette = AI_PALETTES[(index + 3) % AI_PALETTES.length];
+                    const labels = Array.isArray(chart.labels) ? chart.labels : (Array.isArray(chart.x) ? chart.x : []);
+                    const data = Array.isArray(chart.data) ? chart.data : (Array.isArray(chart.y) ? chart.y : []);
+                    if (labels.length === 0 || data.length === 0) return;
+                    const card = document.createElement('div');
+                    card.className = 'glass-panel p-8 rounded-[2.5rem] flex flex-col gap-4 relative overflow-hidden animate-reveal';
+                    card.innerHTML = `<div class="absolute -top-12 -right-12 w-36 h-36 bg-cyan-500/5 blur-3xl rounded-full"></div>
+                      <div class="relative z-10 flex flex-col gap-4 h-full">
+                        <div class="flex items-start gap-3">
+                            <div class="p-2.5 bg-cyan-500/10 rounded-xl border border-cyan-500/20"><i data-lucide="sparkles" class="text-cyan-400 w-4 h-4"></i></div>
+                            <div><h3 class="text-[15px] font-black text-white leading-snug">${chart.title || 'Recommended Chart'}</h3></div>
+                        </div>
+                        <div style="height:260px; position:relative;"><canvas id="${cid}"></canvas></div>
+                      </div>`;
+                    container.appendChild(card);
+                    new Chart(document.getElementById(cid).getContext('2d'), {
+                        type: ["bar", "line", "doughnut", "pie", "radar", "polarArea"].includes(chart.chart_type) ? chart.chart_type : "bar",
+                        data: { labels, datasets: [{ label: chart.title || 'Chart', data, backgroundColor: labels.map((_, i) => palette[i % palette.length]), borderWidth: 0, borderRadius: 8 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: chart.chart_type === 'pie' || chart.chart_type === 'doughnut' } } }
+                    });
+                });
+            } catch (e) { }
+
+            lucide.createIcons();
+            aiChartsBuilt = true;
+            requestAnimationFrame(() => { Object.values(aiChartInstances).forEach(ch => { try { ch.resize(); } catch (e) { } }); });
+        }
+
+        function buildCorrelations() {
+            const raw = document.getElementById('correlation-json-data').textContent;
+            let data;
+            try { data = JSON.parse(raw); } catch (e) { return; }
+            const pairs = data.strong_correlations || [];
+            const summary = data.matrix_summary || {};
+            const summaryEl = document.getElementById('corr-summary');
+            const chartCard = document.getElementById('corr-chart-card');
+            const tableCard = document.getElementById('corr-table-card');
+            const emptyEl = document.getElementById('corr-empty');
+
+            if (summaryEl) {
+                summaryEl.innerHTML = '';
+                [{ label: 'Numeric Columns', value: summary.total_numeric_cols || 0, accent: 'emerald' },
+                { label: 'Pairs Analyzed', value: summary.total_pairs_checked || 0, accent: 'cyan' },
+                { label: 'Strong Correlations', value: summary.strong_count || 0, accent: 'purple' }].forEach(m => {
+                    const card = document.createElement('div');
+                    card.className = `glass-panel p-6 rounded-3xl flex flex-col gap-1`;
+                    card.innerHTML = `<p class="meta-label text-${m.accent}-400">${m.label}</p><p class="text-2xl font-black text-white">${m.value}</p>`;
+                    summaryEl.appendChild(card);
+                });
+                summaryEl.style.display = 'grid';
+            }
+
+            if (pairs.length === 0) {
+                if (emptyEl) emptyEl.classList.remove('hidden');
+                return;
+            }
+
+            if (chartCard) {
+                chartCard.style.display = 'block';
+                const canvas = document.getElementById('corr-bar-chart');
+                new Chart(canvas.getContext('2d'), {
+                    type: 'bar', indexAxis: 'y',
+                    data: {
+                        labels: pairs.map(p => `${p.feature_a} ↔ ${p.feature_b}`),
+                        datasets: [{
+                            label: 'Pearson r', data: pairs.map(p => p.correlation),
+                            backgroundColor: pairs.map(p => p.correlation >= 0 ? `rgba(52,211,153,${0.4 + Math.abs(p.correlation) * 0.5})` : `rgba(244,114,182,${0.4 + Math.abs(p.correlation) * 0.5})`),
+                            borderRadius: 8, borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                        scales: { x: { min: -1, max: 1, grid: { color: 'rgba(255,255,255,0.03)' } }, y: { grid: { display: false } } }
+                    }
+                });
+                const insightEl = document.getElementById('corr-insight');
+                if (insightEl && pairs[0]) {
+                    const strongest = pairs[0];
+                    insightEl.innerHTML = `<span class="text-emerald-400 font-black mr-1">💡 INSIGHT:</span> Strongest relationship: <strong class="text-white">${strongest.feature_a}</strong> & <strong class="text-white">${strongest.feature_b}</strong> (r = ${strongest.correlation.toFixed(4)}).`;
+                }
+            }
+
+            if (tableCard) {
+                tableCard.style.display = 'block';
+                const tbody = document.getElementById('corr-table-body');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    pairs.forEach((p, index) => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'border-b border-white/5 hover:bg-white/[0.02] transition-colors';
+
+                        // Color coding based on correlation strength and direction
+                        const corrValue = Math.abs(p.correlation);
+                        let strengthColor, directionColor, corrColor, bgColor;
+
+                        if (corrValue >= 0.8) {
+                            strengthColor = 'text-emerald-400';
+                            bgColor = 'bg-emerald-500/5';
+                        } else if (corrValue >= 0.6) {
+                            strengthColor = 'text-cyan-400';
+                            bgColor = 'bg-cyan-500/5';
+                        } else if (corrValue >= 0.4) {
+                            strengthColor = 'text-blue-400';
+                            bgColor = 'bg-blue-500/5';
+                        } else if (corrValue >= 0.2) {
+                            strengthColor = 'text-purple-400';
+                            bgColor = 'bg-purple-500/5';
+                        } else {
+                            strengthColor = 'text-slate-400';
+                            bgColor = 'bg-slate-500/5';
+                        }
+
+                        if (p.correlation >= 0) {
+                            directionColor = 'text-green-400';
+                            corrColor = 'text-green-300';
+                        } else {
+                            directionColor = 'text-red-400';
+                            corrColor = 'text-red-300';
+                        }
+
+                        // Alternate row backgrounds
+                        const rowBg = index % 2 === 0 ? 'bg-white/[0.01]' : 'bg-white/[0.005]';
+
+                        tr.innerHTML = `
+                            <td class="py-3 px-4 font-bold text-emerald-300 ${rowBg} rounded-l-lg">${p.feature_a}</td>
+                            <td class="py-3 px-4 font-bold text-blue-300 ${rowBg}">${p.feature_b}</td>
+                            <td class="py-3 px-4 font-black ${corrColor} ${bgColor} ${rowBg} text-center font-mono text-lg">${p.correlation.toFixed(4)}</td>
+                            <td class="py-3 px-4 font-bold ${strengthColor} ${rowBg} text-center">${p.strength}</td>
+                            <td class="py-3 px-4 font-bold ${directionColor} ${rowBg} rounded-r-lg text-center">${p.direction}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            }
+            lucide.createIcons();
+        }
+
+        async function askQuestion() {
+            const input = document.getElementById('ask-input');
+            const question = input.value.trim();
+            if (!question) return;
+            const answerEl = document.getElementById('ask-answer'), answerText = document.getElementById('ask-answer-text');
+            const loadingEl = document.getElementById('ask-loading'), askBtn = document.getElementById('ask-btn');
+
+            // Clear any previously generated chart
+            const oldChart = document.getElementById('ask-chart-container');
+            if (oldChart) oldChart.remove();
+
+            answerEl.style.display = 'none'; loadingEl.style.display = 'flex'; askBtn.disabled = true;
+            try {
+                const resp = await fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }) });
+                const data = await resp.json();
+                answerText.innerHTML = `<span class="text-cyan-400 font-black mr-1">💡 ANSWER:</span> ${data.answer}`;
+
+                // Process dynamic chart from AI
+                if (data.chart && data.chart.type && data.chart.labels && data.chart.data) {
+                    const container = document.createElement('div');
+                    container.id = 'ask-chart-container';
+                    container.className = 'w-full h-64 mt-6 p-4 bg-slate-800/30 rounded-2xl border border-slate-700/50';
+                    const canvas = document.createElement('canvas');
+                    container.appendChild(canvas);
+                    answerEl.appendChild(container);
+
+                    // Simple dynamic coloring rules
+                    let bgColors = 'rgba(56, 189, 248, 0.3)';
+                    let borderColors = 'rgba(56, 189, 248, 1)';
+                    if (['pie', 'doughnut', 'polarArea'].includes(data.chart.type)) {
+                        bgColors = typeof AI_PALETTES !== 'undefined' ? AI_PALETTES.map(p => p.bg) : ['#38bdf8', '#34d399', '#fbbf24', '#f87171', '#c084fc'];
+                        borderColors = typeof AI_PALETTES !== 'undefined' ? AI_PALETTES.map(p => p.border) : ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7'];
+                    }
+
+                    new Chart(canvas.getContext('2d'), {
+                        type: data.chart.type,
+                        data: {
+                            labels: data.chart.labels,
+                            datasets: [{
+                                label: data.chart.title || 'Insight',
+                                data: data.chart.data,
+                                backgroundColor: bgColors,
+                                borderColor: borderColors,
+                                borderWidth: 1,
+                                borderRadius: data.chart.type === 'bar' ? 4 : 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: ['pie', 'doughnut', 'polarArea'].includes(data.chart.type),
+                                    position: 'right',
+                                    labels: { color: '#cbd5e1', font: { size: 11 } }
+                                },
+                                title: {
+                                    display: !!data.chart.title,
+                                    text: data.chart.title,
+                                    color: '#f8fafc',
+                                    font: { size: 14, weight: 'bold' }
+                                }
+                            },
+                            scales: ['pie', 'doughnut', 'polarArea', 'radar'].includes(data.chart.type) ? {} : {
+                                x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+                                y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                            }
+                        }
+                    });
+                }
+
+                answerEl.style.display = 'block';
+            } catch (e) { answerText.innerHTML = `<span class="text-red-400 font-black mr-1">⚠ ERROR:</span> Failed to process question.`; answerEl.style.display = 'block'; }
+            loadingEl.style.display = 'none'; askBtn.disabled = false;
+        }
+
+        async function generateReport() {
+            const loadingEl = document.getElementById('report-loading'), contentEl = document.getElementById('report-content'), genBtn = document.getElementById('report-gen-btn');
+            genBtn.disabled = true; loadingEl.style.display = 'flex';
+            try {
+                const resp = await fetch('/report', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                const data = await resp.json();
+                if (data.error) { loadingEl.innerHTML = `<span class="text-red-400 text-xs font-bold">⚠ ${data.error}</span>`; return; }
+                document.getElementById('report-title').textContent = data.title;
+                document.getElementById('report-meta').textContent = `Generated ${data.generated_at}`;
+                const sectionsEl = document.getElementById('report-sections');
+                sectionsEl.innerHTML = '';
+                (data.sections || []).forEach((section, index) => {
+                    const card = document.createElement('div');
+                    card.className = `glass-panel p-8 rounded-[2.5rem] relative overflow-hidden animate-reveal`;
+                    card.innerHTML = `<div class="relative z-10"><h3 class="text-[15px] font-black text-white mb-4">${section.title}</h3><div class="text-sm text-slate-300 font-medium leading-relaxed">${marked.parse(section.content)}</div></div>`;
+                    sectionsEl.appendChild(card);
+                });
+                loadingEl.style.display = 'none'; contentEl.style.display = 'block'; document.getElementById('report-trigger').style.display = 'none';
+                lucide.createIcons();
+            } catch (e) { loadingEl.innerHTML = `<span class="text-red-400 text-xs font-bold">⚠ Failed to generate report.</span>`; }
+        }
+
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById(sectionId);
+            if (target) target.classList.add('active');
+            document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.getElementById('btn-' + sectionId);
+            if (activeBtn) activeBtn.classList.add('active');
+            if (sectionId === 'ai-summary') processSummary();
+            if (sectionId === 'overall-health') updateHealthScore(parseInt("{{ insights.overall_health_score | default('0') }}"));
+            if (sectionId === 'graphs') setTimeout(() => { requestAnimationFrame(() => { requestAnimationFrame(() => { buildCharts(); }); }); }, 80);
+            if (sectionId === 'correlations') setTimeout(() => { requestAnimationFrame(() => { requestAnimationFrame(() => { buildCorrelations(); }); }); }, 80);
+            if (sectionId === 'ai-charts-section') setTimeout(() => { requestAnimationFrame(() => { requestAnimationFrame(() => { buildAICharts(); }); }); }, 80);
+            document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        window.onload = () => showSection('welcome');
+    </script>
+
+    <!-- Data Injections from Backend -->
+    <script id="charts-json-data" type="application/json">{{ charts_json | safe }}</script>
+    <script id="correlation-json-data" type="application/json">{{ correlation_json | safe }}</script>
+    <script id="drivers-json-data" type="application/json">{{ drivers_json | safe }}</script>
+    <script id="ai-charts-json-data" type="application/json">{{ ai_charts_json | safe }}</script>
+    <script id="recommended-charts-json" type="application/json">{{ recommended_charts_json | safe }}</script>
+    <script id="strategic-insights-json" type="application/json">{{ strategic_insights_json | safe }}</script>
+
+    </div>
+
+    <!-- 3D Particle Sphere Script -->
+    <script>
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x020617, 0.001);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
+        const canvasContainer = document.getElementById('canvas-container');
+        if (canvasContainer) {
+            canvasContainer.appendChild(renderer.domElement);
+        }
+
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 2000;
+        const posArray = new Float32Array(particlesCount * 3);
+        const colorArray = new Float32Array(particlesCount * 3);
+
+        const color1 = new THREE.Color(0x2dd4bf);
+        const color2 = new THREE.Color(0xa855f7);
+
+        for(let i = 0; i < particlesCount * 3; i+=3) {
+            const r = 20;
+            const theta = 2 * Math.PI * Math.random();
+            const phi = Math.acos(2 * Math.random() - 1);
+            const spread = r + (Math.random() * 6 - 3); 
+
+            posArray[i] = spread * Math.sin(phi) * Math.cos(theta);
+            posArray[i+1] = spread * Math.sin(phi) * Math.sin(theta);
+            posArray[i+2] = spread * Math.cos(phi);
+
+            const mixedColor = color1.clone().lerp(color2, Math.random());
+            colorArray[i] = mixedColor.r;
+            colorArray[i+1] = mixedColor.g;
+            colorArray[i+2] = mixedColor.b;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.05,
+            vertexColors: true,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            opacity: 0.5
+        });
+
+        const particleMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particleMesh);
+
+        camera.position.z = 40;
+
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            targetX = mouseX * 0.001;
+            targetY = mouseY * 0.001;
+
+            particleMesh.rotation.y += 0.001;
+            particleMesh.rotation.x += 0.0005;
+
+            const positions = particleMesh.geometry.attributes.position.array;
+            for(let i = 0; i < particlesCount; i++) {
+                const i3 = i * 3;
+                const x = positions[i3];
+                positions[i3 + 1] += Math.sin(elapsedTime + x) * 0.002;
+            }
+            particleMesh.geometry.attributes.position.needsUpdate = true;
+
+            particleMesh.rotation.y += 0.05 * (targetX - particleMesh.rotation.y);
+            particleMesh.rotation.x += 0.05 * (targetY - particleMesh.rotation.x);
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Setup scroll animation for the sphere to move slightly
+        gsap.registerPlugin(ScrollTrigger);
+        gsap.to(particleMesh.position, {
+            y: 5,
+            x: -5,
+            scrollTrigger: {
+                trigger: "body",
+                start: "top top",
+                end: "bottom bottom",
+                scrub: 1
+            }
+        });
+    </script>
+</body>
+
+</html>

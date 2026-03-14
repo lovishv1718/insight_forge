@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insight Forge | Data Synthesis Engine</title>
+    <!-- Three.js for 3D Backgrounds -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- GSAP for Scroll Animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+        :root {
+            --brand-cyan: #2dd4bf;
+            --brand-purple: #a855f7;
+            --bg-dark: #020617; /* Very dark slate */
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-dark);
+            color: #f1f5f9;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+            /* Hide scrollbar initially for loader */
+            overflow-y: hidden;
+        }
+        #progress-text{
+color:#2dd4bf;
+text-shadow:0 0 10px rgba(45,212,191,0.6);
+}
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #020617;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 10px;
+        }
+
+        /* --- 1. THE LOAD SCREEN (0:00 - 0:01) --- */
+        #loader-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background-color: #020617;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .loader-percentage {
+            font-size: 8rem;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.05em;
+            background: linear-gradient(180deg, #ffffff 0%, #64748b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .loader-text {
+            color: #64748b;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5em;
+            margin-top: 1rem;
+            font-weight: 700;
+        }
+
+        .loader-bar {
+            width: 200px;
+            height: 2px;
+            background: #1e293b;
+            margin-top: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loader-bar-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: var(--brand-cyan);
+            width: 0%;
+            box-shadow: 0 0 10px var(--brand-cyan);
+        }
+
+        /* --- 2. 3D CANVAS CONTAINER --- */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none; /* Let clicks pass through */
+        }
+
+        .content-layer {
+            position: relative;
+            z-index: 10;
+        }
+
+        /* --- 3. PREMIUM GLASS UI --- */
+        .glass-nav {
+            background: rgba(2, 6, 23, 0.5);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(45, 212, 191, 0.3);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(45, 212, 191, 0.1);
+        }
+
+        /* --- 4. DYNAMIC BUTTONS (Purple Wave CTA style) --- */
+        .btn-dynamic {
+            position: relative;
+            padding: 1.25rem 3rem;
+            border-radius: 100px;
+            background: #ffffff;
+            color: #020617;
+            font-weight: 900;
+            font-size: 1rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-dynamic::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, var(--brand-cyan), var(--brand-purple));
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: 1;
+        }
+
+        .btn-dynamic span, .btn-dynamic i {
+            position: relative;
+            z-index: 2;
+            transition: color 0.4s ease;
+        }
+
+        .btn-dynamic:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
+        }
+
+        .btn-dynamic:hover::before {
+            opacity: 1;
+        }
+
+        .btn-dynamic:hover span, .btn-dynamic:hover i {
+            color: #ffffff;
+        }
+
+        /* Secondary Button Style */
+        .btn-outline {
+            padding: 1rem 2.5rem;
+            border-radius: 100px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.3s ease;
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* --- Typography Details --- */
+        .outlined-text {
+            -webkit-text-stroke: 1px rgba(255, 255, 255, 0.2);
+            color: transparent;
+        }
+
+        /* --- Section Layouts --- */
+        .hero-section {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-top: 80px;
+        }
+
+        .gsap-reveal {
+            opacity: 0;
+            transform: translateY(40px);
+        }
+
+        /* File Upload Styling Highlights */
+        #file-info {
+            display: none;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        #ai-config {
+            display: none;
+            animation: fadeIn 0.4s ease forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Generating Loader Overlay */
+        #generating-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: rgba(2, 6, 23, 0.95);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .loader-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  margin: 2rem;
+
+  font-family: "Poppins", sans-serif;
+  font-size: 1.6em;
+  font-weight: 600;
+  user-select: none;
+  color: #ffffff;
+
+  scale: 2;
+}
+
+.loader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+
+  background-color: transparent;
+  mask: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 6px,
+    black 7px,
+    black 8px
+  );
+}
+
+.loader::after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+
+  background-image:
+    radial-gradient(circle at 50% 50%, #ff0 0%, transparent 50%),
+    radial-gradient(circle at 45% 45%, #f00 0%, transparent 45%),
+    radial-gradient(circle at 55% 55%, #0ff 0%, transparent 45%),
+    radial-gradient(circle at 45% 55%, #0f0 0%, transparent 45%),
+    radial-gradient(circle at 55% 45%, #00f 0%, transparent 45%);
+
+  mask: radial-gradient(
+    circle at 50% 50%,
+    transparent 0%,
+    transparent 10%,
+    black 25%
+  );
+
+  animation:
+    transform-animation 2s infinite alternate,
+    opacity-animation 4s infinite;
+
+  animation-timing-function: cubic-bezier(0.6, 0.8, 0.5, 1);
+}
+
+@keyframes transform-animation {
+  0% { transform: translate(-55%); }
+  100% { transform: translate(55%); }
+}
+
+@keyframes opacity-animation {
+  0%,100% { opacity: 0; }
+  15% { opacity: 1; }
+  65% { opacity: 0; }
+}
+
+.loader-letter {
+  display: inline-block;
+  opacity: 0;
+  animation: loader-letter-anim 4s infinite linear;
+  z-index: 2;
+}
+
+.loader-letter:nth-child(1){animation-delay:0.1s;}
+.loader-letter:nth-child(2){animation-delay:0.205s;}
+.loader-letter:nth-child(3){animation-delay:0.31s;}
+.loader-letter:nth-child(4){animation-delay:0.415s;}
+.loader-letter:nth-child(5){animation-delay:0.521s;}
+.loader-letter:nth-child(6){animation-delay:0.626s;}
+.loader-letter:nth-child(7){animation-delay:0.731s;}
+.loader-letter:nth-child(8){animation-delay:0.837s;}
+.loader-letter:nth-child(9){animation-delay:0.942s;}
+.loader-letter:nth-child(10){animation-delay:1.047s;}
+
+@keyframes loader-letter-anim {
+  0% { opacity:0; }
+  5% {
+    opacity:1;
+    text-shadow:0 0 4px #fff;
+    transform:scale(1.1) translateY(-2px);
+  }
+  20% { opacity:0.2; }
+  100% { opacity:0; }
+}
+        
+
+        
+
+
+        
+    </style>
+</head>
+
+<body>
+
+    <!-- 1. LOADING SCREEN -->
+    <div id="loader-screen">
+        <div class="loader-percentage" id="loader-count">0%</div>
+        <div class="loader-text">Initializing Engine</div>
+        <div class="loader-bar">
+            <div class="loader-bar-fill" id="loader-fill"></div>
+        </div>
+    </div>
+
+    <!-- 2. ANALYZING / GENERATING LOADER (Used after form submit) -->
+   <div id="generating-loader">
+
+  <div class="loader-wrapper">
+    <span class="loader-letter">G</span>
+    <span class="loader-letter">e</span>
+    <span class="loader-letter">n</span>
+    <span class="loader-letter">e</span>
+    <span class="loader-letter">r</span>
+    <span class="loader-letter">a</span>
+    <span class="loader-letter">t</span>
+    <span class="loader-letter">i</span>
+    <span class="loader-letter">n</span>
+    <span class="loader-letter">g</span>
+
+    <div class="loader"></div>
+  </div>
+
+  <p id="progress-text" class="text-white text-xl font-bold mt-8">
+    0%
+  </p>
+
+  <p class="text-slate-400 font-medium uppercase tracking-[0.2em] text-sm mt-3">
+    Forging Intelligence...
+  </p>
+
+</div>
+
+   
+
+
+    
+    
+
+    <!-- 3. THREE.JS BACKGROUND CANVAS -->
+    <div id="canvas-container"></div>
+
+    <div class="content-layer">
+
+        <!-- 4. NAVIGATION -->
+        <nav class="fixed w-full z-50 glass-nav py-5 transition-all duration-300">
+            <div class="container mx-auto px-8 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="hexagon" class="text-cyan-400 w-8 h-8"></i>
+                    <span class="text-xl font-black text-white tracking-tighter uppercase">Insight Forge</span>
+                </div>
+                
+                <div class="hidden md:flex items-center gap-8 text-sm font-bold uppercase tracking-widest text-slate-400">
+                    <a href="#services" class="hover:text-white transition-colors">Features</a>
+                    <a href="#about" class="hover:text-white transition-colors">How it works</a>
+                    <a href="#deploy" class="hover:text-white transition-colors">Start Project</a>
+                </div>
+
+                <a href="#deploy" class="btn-outline hidden md:block" style="padding: 0.75rem 1.5rem; font-size: 0.75rem;">
+                    Launch Engine
+                </a>
+            </div>
+        </nav>
+
+        <!-- 5. HERO SECTION -->
+        <section class="hero-section">
+            <div class="container mx-auto px-8 relative z-10 flex flex-col items-center text-center">
+                <div class="gsap-reveal hero-item flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 mb-8">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#2dd4bf] animate-pulse"></span>
+                    <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">v2.4 Core Online</span>
+                </div>
+                
+                <h1 class="gsap-reveal hero-item text-6xl md:text-8xl lg:text-[7rem] font-black text-white tracking-tighter leading-[0.9] mb-8 uppercase">
+                    Data Transforms <br>
+                    <span class="outlined-text">Into Impact.</span>
+                </h1>
+                
+                <p class="gsap-reveal hero-item text-lg md:text-xl text-slate-400 max-w-2xl font-medium mb-12">
+                    An automated, high-end scoping engine. Upload raw datasets and instantly receive mathematically rigorous visual intelligence and AI-driven business reports.
+                </p>
+                
+                <div class="gsap-reveal hero-item flex flex-col sm:flex-row gap-6">
+                    <button onclick="document.getElementById('deploy').scrollIntoView({behavior: 'smooth'})" class="btn-dynamic">
+                        <span>Initiate Project</span>
+                        <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                    </button>
+                    <a href="#services" class="btn-outline flex items-center gap-2">
+                        Explore Core <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                    </a>
+                </div>
+
+                <!-- Stats Footer in Hero -->
+                <div class="gsap-reveal hero-item mt-24 grid grid-cols-3 gap-12 border-t border-white/10 pt-10">
+                    <div>
+                        <p class="text-4xl font-black text-white">50<span class="text-cyan-400">+</span></p>
+                        <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-2">Heuristics</p>
+                    </div>
+                    <div>
+                        <p class="text-4xl font-black text-white">100<span class="text-cyan-400">%</span></p>
+                        <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-2">Automated</p>
+                    </div>
+                    <div>
+                        <p class="text-4xl font-black text-white">24<span class="text-cyan-400">/7</span></p>
+                        <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-2">Availability</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. SERVICES / CAPABILITIES SECTION (Scroll Animated) -->
+        <section id="services" class="py-32 relative">
+            <div class="container mx-auto px-8">
+                <h2 class="text-xs font-black uppercase tracking-[0.3em] text-cyan-400 mb-4 gsap-section-title">Our Capabilities</h2>
+                <h3 class="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter mb-20 gsap-section-title">
+                    Forging Intelligence
+                </h3>
+
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Service 1 -->
+                    <div class="glass-card p-10 gsap-service-card">
+                        <div class="w-14 h-14 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 mb-8">
+                            <i data-lucide="bar-chart-2" class="text-cyan-400 w-6 h-6"></i>
+                        </div>
+                        <h4 class="text-2xl font-black text-white mb-4">Auto-EDA</h4>
+                        <p class="text-slate-400 font-medium leading-relaxed">
+                            Instant calculation of variance, null density, and core statistics without writing a single line of pandas.
+                        </p>
+                    </div>
+                    
+                    <!-- Service 2 -->
+                    <div class="glass-card p-10 gsap-service-card">
+                        <div class="w-14 h-14 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20 mb-8">
+                            <i data-lucide="cpu" class="text-purple-400 w-6 h-6"></i>
+                        </div>
+                        <h4 class="text-2xl font-black text-white mb-4">AI Synthesis</h4>
+                        <p class="text-slate-400 font-medium leading-relaxed">
+                            Integration with Google Gemini models to generate executive summaries and recommend the optimal chart structures.
+                        </p>
+                    </div>
+
+                    <!-- Service 3 -->
+                    <div class="glass-card p-10 gsap-service-card">
+                        <div class="w-14 h-14 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 mb-8">
+                            <i data-lucide="shield-alert" class="text-blue-400 w-6 h-6"></i>
+                        </div>
+                        <h4 class="text-2xl font-black text-white mb-4">Risk Profiling</h4>
+                        <p class="text-slate-400 font-medium leading-relaxed">
+                            Algorithmic detection of outliers, skewness, and invariant columns to score the overall health of your dataset.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+<section id="about" class="py-32 relative">
+    <div class="container mx-auto px-8 text-center">
+
+        <h2 class="text-xs font-black uppercase tracking-[0.3em] text-cyan-400 mb-4">
+            How It Works
+        </h2>
+
+        <h3 class="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter mb-20">
+            From Raw Data to Intelligence
+        </h3>
+
+        <div class="grid md:grid-cols-3 gap-8">
+
+            <div class="glass-card p-10">
+                <h4 class="text-2xl font-black text-white mb-4">1. Upload Dataset</h4>
+                <p class="text-slate-400">
+                    Import CSV or Excel datasets and instantly prepare them for automated analysis.
+                </p>
+            </div>
+
+            <div class="glass-card p-10">
+                <h4 class="text-2xl font-black text-white mb-4">2. AI Analysis</h4>
+                <p class="text-slate-400">
+                    Insight Forge runs statistical profiling, risk detection, and AI-driven reasoning.
+                </p>
+            </div>
+
+            <div class="glass-card p-10">
+                <h4 class="text-2xl font-black text-white mb-4">3. Visual Insights</h4>
+                <p class="text-slate-400">
+                    Automatically generate dashboards, charts, and executive summaries.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+</section>
+
+        <!-- 7. THE DEPLOYMENT TERMINAL (Form Section) -->
+        <section id="deploy" class="py-32 relative flex items-center justify-center min-h-[80vh]">
+            <div class="container mx-auto px-8 relative z-10 max-w-3xl">
+                
+                <div class="text-center mb-16 gsap-deploy-item">
+                    <h2 class="text-5xl md:text-7xl font-black text-white tracking-tighter uppercase mb-6">Let's Create<br>Something That Matters.</h2>
+                    <p class="text-slate-400 font-medium text-lg">Upload your CSV or Excel file to begin synthesis.</p>
+                </div>
+
+                <div class="glass-card p-8 md:p-12 gsap-deploy-item">
+                    
+                    <!-- ACTUAL FORM -->
+                    <form action="/analyze" method="POST" enctype="multipart/form-data" id="upload-form">
+                        
+                        <!-- HIDDEN FIELDS REQUIRED BY BACKEND -->
+                        <input type="file" id="dataset-upload" name="datafile" class="hidden" onchange="handleFileSelect()">
+                        <input type="hidden" name="api_key" id="api-key-hidden">
+                        <input type="hidden" name="model_name" id="model-name-hidden">
+
+                        <!-- STEP 1: UPLOAD BUTTON -->
+                        <div id="upload-stage" class="text-center py-10 border-2 border-dashed border-white/10 rounded-3xl hover:border-cyan-500/50 transition-colors bg-white/5">
+                            <i data-lucide="upload-cloud" class="w-12 h-12 text-cyan-400 mx-auto mb-6"></i>
+                            <button type="button" id="deploy-btn" onclick="document.getElementById('dataset-upload').click()" class="btn-outline">
+                                Select Dataset
+                            </button>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-6">Supports .CSV and .XLSX (Up to 200k rows)</p>
+                        </div>
+
+                        <!-- FILE INFO DISPLAY (Hidden initially) -->
+                        <div id="file-info" class="mt-8 px-6 py-4 bg-white/5 border border-cyan-500/30 rounded-2xl flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <i data-lucide="file-check-2" class="text-cyan-400 w-6 h-6"></i>
+                                <div>
+                                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Target Acquired</p>
+                                    <p id="filename-display" class="text-sm font-bold text-white truncate max-w-[200px] md:max-w-xs"></p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="resetFile()" class="p-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <!-- STEP 2: AI CONFIG (Hidden initially) -->
+                        <div id="ai-config" class="mt-8 space-y-6">
+                            
+                            <!-- API Key Input -->
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Neural Link (API Key)</label>
+                                <div class="relative">
+                                    <input type="password" id="api-key-input" placeholder="Enter Gemini or OpenAI key" class="w-full px-6 py-4 bg-black/40 border border-white/10 rounded-2xl text-sm font-bold text-white placeholder-slate-600 outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all pr-12" oninput="checkAIConfig()">
+                                    <button type="button" onclick="toggleKeyVisibility()" class="absolute right-5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                                        <i data-lucide="eye" id="eye-icon" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Model Select -->
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Model Selection</label>
+                                <select id="model-select" class="w-full px-6 py-4 bg-black/40 border border-white/10 rounded-2xl text-sm font-bold text-white outline-none focus:border-purple-500/50 transition-all appearance-none outline-none cursor-pointer">
+                                    <optgroup label="Google Gemini" style="background: #020617; color: #cbd5e1;">
+                                        <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash</option>
+                                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                                        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                                    </optgroup>
+                                    <optgroup label="OpenAI" style="background: #020617; color: #cbd5e1;">
+                                        <option value="gpt-4o">GPT-4o</option>
+                                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+
+                        </div>
+
+                        <!-- STEP 3: SUBMIT BUTTON (Hidden until API key is entered) -->
+                        <div id="generate-container" class="mt-10 text-center" style="display: none;">
+                            <button type="button" onclick="startGeneration()" class="btn-dynamic w-full">
+                                <span>Commence Analysis</span>
+                                <i data-lucide="rocket" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. FOOTER -->
+        <footer class="border-t border-white/10 pt-20 pb-10 mt-20 relative">
+            <div class="container mx-auto px-8">
+                <div class="flex flex-col md:flex-row justify-between items-center md:items-start gap-8">
+                    <div class="text-center md:text-left">
+                        <div class="flex items-center gap-3 mb-4 justify-center md:justify-start">
+                            <i data-lucide="hexagon" class="text-cyan-400 w-6 h-6"></i>
+                            <span class="text-lg font-black text-white tracking-tighter uppercase">Insight Forge</span>
+                        </div>
+                        <p class="text-slate-500 text-sm font-medium">Companies Create Data.<br>Insight Forge Creates Impact.</p>
+                    </div>
+                    <div class="text-center md:text-right">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Contact Protocol</p>
+                        <a href="mailto:atom@insightforge.ai" class="text-xl font-bold text-white hover:text-cyan-400 transition-colors">atom@insightforge.ai</a>
+                    </div>
+                </div>
+                <div class="border-t border-white/5 mt-16 pt-8 text-center flex flex-col md:flex-row justify-between items-center gap-4">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600">© 2026 Insight Forge. Built for Industrial Clients.</p>
+                    <div class="flex gap-4 text-slate-600">
+                        <a href="#" class="hover:text-white transition-colors"><i data-lucide="twitter" class="w-4 h-4"></i></a>
+                        <a href="#" class="hover:text-white transition-colors"><i data-lucide="github" class="w-4 h-4"></i></a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Init Icons
+        lucide.createIcons();
+
+        // --- 1. LOADER ANIMATION LOGIC ---
+        const loaderScreen = document.getElementById('loader-screen');
+        const loaderCount = document.getElementById('loader-count');
+        const loaderFill = document.getElementById('loader-fill');
+        
+        let progress = 0;
+        // Fast random increments to simulate loading
+        const loadInterval = setInterval(() => {
+            progress += Math.floor(Math.random() * 10) + 1;
+            if (progress > 100) progress = 100;
+            
+            loaderCount.innerText = progress + '%';
+            loaderFill.style.width = progress + '%';
+
+            if (progress === 100) {
+                clearInterval(loadInterval);
+                setTimeout(() => {
+                    // Slide up loader using GSAP
+                    gsap.to(loaderScreen, {
+                        y: "-100%",
+                        duration: 1,
+                        ease: "power4.inOut",
+                        onComplete: () => {
+                            loaderScreen.style.display = "none";
+                            document.body.style.overflowY = "auto";
+                            initHeroAnimations();
+                        }
+                    });
+                }, 400); // short pause at 100%
+            }
+        }, 80);
+
+        // --- 2. GSAP SCROLL ANIMATIONS ---
+        gsap.registerPlugin(ScrollTrigger);
+
+        function initHeroAnimations() {
+            gsap.to(".hero-item", {
+                y: 0,
+                opacity: 1,
+                duration: 1,
+                stagger: 0.15,
+                ease: "power3.out"
+            });
+        }
+
+        // Services Scroll
+        gsap.utils.toArray('.gsap-section-title').forEach(title => {
+            gsap.from(title, {
+                scrollTrigger: { trigger: title, start: "top 80%" },
+                y: 30, opacity: 0, duration: 0.8, ease: "power2.out"
+            });
+        });
+
+        gsap.utils.toArray('.gsap-service-card').forEach((card, i) => {
+            gsap.from(card, {
+                scrollTrigger: { trigger: card, start: "top 85%" },
+                y: 50, opacity: 0, duration: 0.8, delay: i * 0.1, ease: "power2.out"
+            });
+        });
+
+        // Deploy section scroll
+        gsap.from('.gsap-deploy-item', {
+            scrollTrigger: { trigger: '#deploy', start: "top 75%" },
+            y: 40, opacity: 0, duration: 1, stagger: 0.2, ease: "power3.out"
+        });
+
+
+        // --- 3. THREE.JS PARTICLE SPHERE (Antimatter Style) ---
+        const scene = new THREE.Scene();
+        // Fog to blend particles into the background
+        scene.fog = new THREE.FogExp2(0x020617, 0.001);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Create Particles
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 4000;
+        const posArray = new Float32Array(particlesCount * 3);
+        const colorArray = new Float32Array(particlesCount * 3);
+
+        const color1 = new THREE.Color(0x2dd4bf); // Cyan
+        const color2 = new THREE.Color(0xa855f7); // Purple
+
+        for(let i = 0; i < particlesCount * 3; i+=3) {
+            // Sphere distribution
+            const r = 15;
+            const theta = 2 * Math.PI * Math.random();
+            const phi = Math.acos(2 * Math.random() - 1);
+            
+            // Allow some particles to break out of sphere slightly
+            const spread = r + (Math.random() * 4 - 2); 
+
+            posArray[i] = spread * Math.sin(phi) * Math.cos(theta);
+            posArray[i+1] = spread * Math.sin(phi) * Math.sin(theta);
+            posArray[i+2] = spread * Math.cos(phi);
+
+            // Mix colors
+            const mixedColor = color1.clone().lerp(color2, Math.random());
+            colorArray[i] = mixedColor.r;
+            colorArray[i+1] = mixedColor.g;
+            colorArray[i+2] = mixedColor.b;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+        // Create metallic/glowing material
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.05,
+            vertexColors: true,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const particleMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particleMesh);
+
+        camera.position.z = 30;
+
+        // Mouse Interactivity
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+        });
+
+        // Animation Loop
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            targetX = mouseX * 0.001;
+            targetY = mouseY * 0.001;
+
+            // Base rotation
+            particleMesh.rotation.y += 0.002;
+            particleMesh.rotation.x += 0.001;
+
+            // Add subtle wave effect to vertices
+            const positions = particleMesh.geometry.attributes.position.array;
+            for(let i = 0; i < particlesCount; i++) {
+                const i3 = i * 3;
+                const x = particleMesh.geometry.attributes.position.array[i3];
+                // Move y slightly based on time and x position
+                particleMesh.geometry.attributes.position.array[i3 + 1] += Math.sin(elapsedTime + x) * 0.005;
+            }
+            particleMesh.geometry.attributes.position.needsUpdate = true;
+
+            // Mouse interaction (move entire mesh slightly)
+            particleMesh.rotation.y += 0.05 * (targetX - particleMesh.rotation.y);
+            particleMesh.rotation.x += 0.05 * (targetY - particleMesh.rotation.x);
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Responsive resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Setup scroll animation for the sphere to move down/scale as you scroll
+        gsap.to(particleMesh.position, {
+            y: -10,
+            x: 10,
+            scrollTrigger: {
+                trigger: "body",
+                start: "top top",
+                end: "bottom bottom",
+                scrub: 1
+            }
+        });
+
+
+        // --- 4. FILE UPLOAD & FORM LOGIC (Preserved from original) ---
+        
+        function handleFileSelect() {
+            const fileInput = document.getElementById('dataset-upload');
+            const fileInfo = document.getElementById('file-info');
+            const filenameDisplay = document.getElementById('filename-display');
+            const aiConfig = document.getElementById('ai-config');
+            const uploadStage = document.getElementById('upload-stage');
+
+            if (fileInput.files.length > 0) {
+                const name = fileInput.files[0].name;
+                filenameDisplay.innerText = name;
+                
+                // Hide uploader, show file info and config
+                uploadStage.style.display = 'none';
+                fileInfo.style.display = 'flex';
+                aiConfig.style.display = 'block';
+                
+                lucide.createIcons();
+                checkAIConfig();
+            }
+        }
+
+        function resetFile() {
+            document.getElementById('dataset-upload').value = '';
+            
+            // Reset UI
+            document.getElementById('file-info').style.display = 'none';
+            document.getElementById('ai-config').style.display = 'none';
+            document.getElementById('generate-container').style.display = 'none';
+            document.getElementById('upload-stage').style.display = 'block';
+            document.getElementById('api-key-input').value = '';
+        }
+
+        function checkAIConfig() {
+            const apiKey = document.getElementById('api-key-input').value.trim();
+            const generateContainer = document.getElementById('generate-container');
+            if (apiKey.length >= 10) { // arbitrary length check
+                generateContainer.style.display = 'block';
+            } else {
+                generateContainer.style.display = 'none';
+            }
+        }
+
+        function toggleKeyVisibility() {
+            const input = document.getElementById('api-key-input');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                input.type = 'password';
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+
+        function startGeneration() {
+            // Copy API key + model to hidden form fields
+             document.getElementById('api-key-hidden').value =
+        document.getElementById('api-key-input').value.trim();
+
+    document.getElementById('model-name-hidden').value =
+        document.getElementById('model-select').value;
+
+    document.getElementById('generating-loader').style.display = 'flex';
+
+    startFakeProgress();
+
+    setTimeout(() => {
+        document.getElementById('upload-form').submit();
+    }, 500);
+        }
+
+        let progressValue = 0;
+let progressInterval;
+
+function startFakeProgress() {
+
+    progressValue = 0;
+
+    progressInterval = setInterval(() => {
+
+        progressValue += Math.random() * 4;
+
+        if (progressValue > 95) {
+            progressValue = 95;
+        }
+
+        const progressText = document.getElementById("progress-text");
+        if (progressText) {
+            progressText.innerText = Math.floor(progressValue) + "%";
+        }
+
+    }, 700);
+
+}
+
+    </script>
+</body>
+</html>
